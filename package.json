@@ -1,0 +1,15 @@
+{
+  "name": "gmail-agent-workspace",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Convenience proxy. The real project lives in ./gmail-agent — these scripts just forward there so commands also work from this top folder.",
+  "scripts": {
+    "auth": "npm --prefix gmail-agent run auth",
+    "try": "npm --prefix gmail-agent run try --",
+    "mcp": "npm --prefix gmail-agent run mcp",
+    "test": "npm --prefix gmail-agent test",
+    "test:e2e": "npm --prefix gmail-agent run test:e2e",
+    "typecheck": "npm --prefix gmail-agent run typecheck",
+    "install:app": "npm --prefix gmail-agent install"
+  }
+}

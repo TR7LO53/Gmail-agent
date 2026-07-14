@@ -1,0 +1,40 @@
+{
+  "name": "gmail-agent",
+  "version": "0.4.0",
+  "private": true,
+  "type": "module",
+  "description": "Stage 4: read-only web dashboard (Express + SSE) over the Heartbeat/Tracker/Classifier + SQLite parcel memory.",
+  "scripts": {
+    "auth": "tsx src/cli.ts auth",
+    "try": "tsx src/cli.ts",
+    "classify": "tsx src/cli.ts classify",
+    "track": "tsx src/cli.ts track",
+    "heartbeat": "tsx src/cli.ts heartbeat",
+    "serve": "tsx src/ui/server.ts",
+    "start": "tsx src/start.ts",
+    "bot": "tsx src/bot/run.ts",
+    "mcp": "tsx src/mcp/server.ts",
+    "test": "vitest run tests/unit tests/integration",
+    "test:e2e": "vitest run tests/e2e",
+    "eval": "promptfoo eval -c eval/promptfooconfig.yaml",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@google-cloud/local-auth": "^3.0.1",
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "discord.js": "^14.26.4",
+    "dotenv": "^16.6.1",
+    "express": "^5.2.1",
+    "googleapis": "^144.0.0",
+    "openai": "^4.104.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^22.10.0",
+    "promptfoo": "^0.121.17",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.0",
+    "vitest": "^2.1.8"
+  }
+}

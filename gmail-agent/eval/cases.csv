@@ -1,0 +1,8 @@
+from,subject,body,expected_isParcel,expected_carrier,expected_tracking
+noreply@dhl.com,Your DHL package is on its way,"Your shipment 1234567890 is now in transit. Expected delivery: July 2nd.",true,DHL,1234567890
+promo@shop.example.com,Summer sale! 50% off everything,"Check out our summer deals. Use code SUMMER50 at checkout.",false,,
+noreply@inpost.pl,Paczka gotowa do odbioru,"Twoja paczka PL987654 czeka w Paczkomacie. Kod odbioru: 12345.",true,InPost,PL987654
+notifications@amazon.pl,Twoje zamowienie zostalo wyslane,"Twoje zamowienie zostalo wyslane. Numer sledzenia: TBA123456789000. Dostawa spodziewana 2 lipca.",true,Amazon,TBA123456789000
+newsletter@medium.com,Your weekly digest,"Here are the top stories for you this week based on your reading history.",false,,
+kurier@dpd.com.pl,Powiadomienie o dostawie,"Przesylka nr 05221234567890 zostala doreczona dzis o 14:30.",true,DPD,05221234567890
+hr@company.example,Interview scheduled,"Your interview is confirmed for Thursday at 10:00. Please bring your ID.",false,,

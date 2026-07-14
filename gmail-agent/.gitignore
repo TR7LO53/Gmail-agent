@@ -1,0 +1,7 @@
+node_modules/
+dist/
+data/
+credentials.json
+token.json
+.env
+*.log

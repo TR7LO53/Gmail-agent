@@ -1,0 +1,37 @@
+# Ggent — Classifier prompt/model evaluation.
+# Run with:  npm run eval   (needs OPENAI_API_KEY; makes real API calls — not part of `npm test`)
+#
+# Lets you compare models/prompts on labeled cases so you can move the Classifier to a cheaper
+# model with confidence (the original Stage 5 goal).
+description: Ggent classifier evaluation
+
+prompts:
+  - file://classifier.prompt.json
+
+providers:
+  - id: openai:gpt-4.1-nano # current default (cheap)
+    config:
+      response_format: { type: json_object }
+  - id: openai:gpt-4o-mini # comparison model
+    config:
+      response_format: { type: json_object }
+
+defaultTest:
+  assert:
+    - type: is-json
+    - type: javascript
+      value: |
+        const o = JSON.parse(output);
+        const wantParcel = String(vars.expected_isParcel) === 'true';
+        if (o.isParcelRelated !== wantParcel) {
+          return { pass: false, score: 0, reason: `isParcelRelated=${o.isParcelRelated}, expected ${wantParcel}` };
+        }
+        if (vars.expected_carrier && o.carrier !== vars.expected_carrier) {
+          return { pass: false, score: 0.5, reason: `carrier=${o.carrier}, expected ${vars.expected_carrier}` };
+        }
+        if (vars.expected_tracking && o.trackingNumber !== vars.expected_tracking) {
+          return { pass: false, score: 0.5, reason: `tracking=${o.trackingNumber}, expected ${vars.expected_tracking}` };
+        }
+        return { pass: true, score: 1, reason: 'ok' };
+
+tests: file://cases.csv

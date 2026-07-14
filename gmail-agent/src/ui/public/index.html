@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ggent — Dashboard</title>
+    <style>
+      :root {
+        --bg: #0f1220;
+        --panel: #191d2f;
+        --panel-2: #21263c;
+        --text: #e7e9f3;
+        --muted: #9aa0b8;
+        --accent: #6c8cff;
+        --warn: #e6a23c;
+        --line: #2b3150;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font: 15px/1.5 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+      }
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 18px 24px;
+        border-bottom: 1px solid var(--line);
+        background: var(--panel);
+        position: sticky;
+        top: 0;
+      }
+      header h1 { font-size: 18px; margin: 0; }
+      .meta { color: var(--muted); font-size: 13px; display: flex; align-items: center; gap: 10px; }
+      .dot { width: 9px; height: 9px; border-radius: 50%; background: #4b5170; display: inline-block; }
+      .dot.live { background: #47d16c; box-shadow: 0 0 8px #47d16c88; }
+      main { max-width: 900px; margin: 0 auto; padding: 24px; display: grid; gap: 20px; }
+      section { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; }
+      section h2 { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0 0 14px; }
+      .row { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+      .parcel { padding: 12px 0; border-top: 1px solid var(--line); }
+      .parcel:first-child { border-top: none; }
+      .parcel .tn { font-weight: 600; }
+      .parcel .sub { color: var(--muted); font-size: 13px; margin-top: 3px; }
+      .hist { color: var(--muted); font-size: 12px; margin-top: 4px; }
+      .badge { font-size: 12px; padding: 3px 9px; border-radius: 999px; background: var(--panel-2); border: 1px solid var(--line); white-space: nowrap; }
+      .badge.delivered { color: #47d16c; border-color: #2c6b3f; }
+      .badge.out_for_delivery { color: #ffce56; border-color: #6b5b25; }
+      .badge.in_transit, .badge.shipped { color: #6c8cff; border-color: #33407a; }
+      .badge.ordered { color: #c58cff; border-color: #4a3370; }
+      .badge.unknown { color: var(--muted); }
+      .badge.unread { color: #ff6b6b; border-color: #6b2c2c; }
+      .email { padding: 9px 0; border-top: 1px solid var(--line); font-size: 14px; }
+      .email:first-child { border-top: none; }
+      .email .who { color: var(--muted); font-size: 12px; margin-top: 2px; }
+      .sub-h { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 0; }
+      #today { border-color: #33407a; }
+      .meter { margin: 12px 0; }
+      .meter .lab { display: flex; justify-content: space-between; align-items: baseline; font-size: 13px; margin-bottom: 5px; }
+      .meter .lab .val { color: var(--muted); }
+      .meter .track { height: 8px; background: var(--panel-2); border-radius: 999px; overflow: hidden; }
+      .meter .fill { height: 100%; background: var(--accent); border-radius: 999px; transition: width .3s ease; }
+      .meter.over .fill { background: var(--warn); }
+      .meter.over .val { color: var(--warn); }
+      .kcal-big { font-size: 26px; font-weight: 600; }
+      .kcal-big .goal { color: var(--muted); font-size: 15px; font-weight: 400; }
+      .food { padding: 10px 0; border-top: 1px solid var(--line); }
+      .food:first-child { border-top: none; }
+      .food-name { font-weight: 600; }
+      .food-matched { margin-top: 2px; }
+      .food-macros { color: var(--muted); font-size: 12px; margin-top: 3px; }
+      .log { display: flex; gap: 10px; align-items: baseline; padding: 6px 0; border-top: 1px solid var(--line); font-size: 13px; }
+      .log:first-child { border-top: none; }
+      .log .when { color: var(--muted); font-size: 12px; white-space: nowrap; }
+      .log .src { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); min-width: 92px; }
+      .log.error .msg { color: #ff6b6b; }
+      .log.warn .src { color: var(--warn); }
+      .log .msg { flex: 1; }
+      .summary-text { font-size: 15px; line-height: 1.6; }
+      .decision { padding: 9px 0; border-top: 1px solid var(--line); font-size: 14px; }
+      .decision:first-child { border-top: none; }
+      .decision .when { color: var(--muted); font-size: 12px; }
+      .decision .out { color: var(--muted); font-size: 13px; margin-top: 2px; }
+      .empty { color: var(--muted); font-style: italic; }
+      .toggle { background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 5px 11px; cursor: pointer; font-size: 13px; }
+      .toggle:hover { border-color: var(--accent); }
+      a { color: var(--accent); }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>📦 Ggent</h1>
+      <div class="meta">
+        <span id="lastScan">Last scan: —</span>
+        <span class="dot" id="liveDot" title="live connection"></span>
+      </div>
+    </header>
+
+    <main>
+      <section id="today">
+        <h2>Today</h2>
+        <div id="summary"><p class="empty">Loading…</p></div>
+        <div class="row" style="margin: 16px 0 6px">
+          <h3 class="sub-h">Recent emails</h3>
+          <span id="unreadCount" class="badge"></span>
+        </div>
+        <div id="lastScanLine" class="hist" style="margin-bottom: 8px"></div>
+        <div id="todayEmails"><p class="empty">Loading…</p></div>
+      </section>
+
+      <section id="activity">
+        <h2>Activity</h2>
+        <div id="logs"><p class="empty">Loading…</p></div>
+      </section>
+
+      <section id="nutrition">
+        <h2>Today's nutrition</h2>
+        <div id="food"><p class="empty">Loading…</p></div>
+      </section>
+
+      <section>
+        <div class="row" style="margin-bottom: 6px">
+          <h2 style="margin: 0">Active parcels</h2>
+          <button class="toggle" id="toggleAll">Show all</button>
+        </div>
+        <div id="parcels"><p class="empty">Loading…</p></div>
+      </section>
+
+      <section>
+        <h2>Decision history</h2>
+        <div id="decisions"><p class="empty">Loading…</p></div>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
