@@ -5,6 +5,7 @@ import type { NutritionProvider, NutritionTotals, NutritionItem } from "../nutri
 import type { Transcriber, AudioInput } from "../llm/transcribe.js";
 import { logMeal } from "../agents/nutrition-log.js";
 import { todaysTotals, deleteLast } from "../memory/food.js";
+import { addPreset, updatePreset, removePreset, listPresets, type FoodPreset } from "../memory/presets.js";
 import { startOfLocalDayIso } from "../memory/emails.js";
 import { nutritionGoals, type NutritionGoals } from "../config.js";
 
@@ -62,6 +63,44 @@ function formatMealReply(
   ].join("\n");
 }
 
+function presetFormatHint(cmd: string): string {
+  return `Nie rozpoznałem formatu. Użyj: ${cmd} | nazwa | kcal | białko | węgle | tłuszcz | aliasy (opcjonalnie)`;
+}
+
+/** Parses the fixed `name | kcal | protein | carbs | fat | aliases` fields shared by dodaj/edytuj. */
+function parsePresetFields(
+  fieldsPart: string,
+): { name: string; kcal: number; protein_g: number; carbs_g: number; fat_g: number; aliases: string[] } | undefined {
+  const [name, kcalStr, proteinStr, carbsStr, fatStr, aliasesStr] = fieldsPart
+    .split("|")
+    .map((p) => p.trim());
+  const kcal = Number(kcalStr);
+  const protein_g = Number(proteinStr);
+  const carbs_g = Number(carbsStr);
+  const fat_g = Number(fatStr);
+  if (!name || ![kcal, protein_g, carbs_g, fat_g].every(Number.isFinite)) return undefined;
+  const aliases = aliasesStr ? aliasesStr.split(",").map((a) => a.trim()).filter(Boolean) : [];
+  return { name, kcal, protein_g, carbs_g, fat_g, aliases };
+}
+
+function formatPresetLine(p: FoodPreset): string {
+  const aliases = p.aliases.length ? ` (aliasy: ${p.aliases.join(", ")})` : "";
+  return `• ${p.name} — ${p.kcal} kcal · ${p.protein_g} g B · ${p.carbs_g} g W · ${p.fat_g} g T${aliases}`;
+}
+
+const HELP_TEXT = [
+  "📖 Dostępne komendy:",
+  "",
+  "• dodaj | nazwa | kcal | białko | węgle | tłuszcz | aliasy(opcjonalnie) — dodaje nowy produkt do listy",
+  "• edytuj | nazwa | kcal | białko | węgle | tłuszcz | aliasy(opcjonalnie) — nadpisuje istniejący produkt",
+  "• usuń | nazwa — usuwa produkt z listy",
+  "• lista — pokazuje wszystkie zapisane produkty",
+  "• today / dzisiaj — pokazuje dzisiejsze podsumowanie kalorii i makro",
+  "• /report / /sumup — to samo co today/dzisiaj",
+  "• undo / cofnij — cofa ostatni zapisany posiłek",
+  "• help / pomoc — pokazuje tę wiadomość",
+].join("\n");
+
 async function defaultFetchAudio(url: string, name?: string): Promise<AudioInput> {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`audio download failed: ${res.status}`);
@@ -103,7 +142,12 @@ export async function handleIncoming(input: IncomingInput, deps: BotDeps): Promi
   if (!raw) return;
   const lower = raw.toLowerCase();
 
-  if (lower === "today" || lower === "dzisiaj") {
+  if (lower === "help" || lower === "pomoc") {
+    await input.reply(HELP_TEXT);
+    return;
+  }
+
+  if (lower === "today" || lower === "dzisiaj" || lower === "/report" || lower === "/sumup") {
     await input.reply(formatTotals(todaysTotals(deps.db, startOfLocalDayIso()), nutritionGoals()));
     return;
   }
@@ -112,6 +156,58 @@ export async function handleIncoming(input: IncomingInput, deps: BotDeps): Promi
     const removed = deleteLast(deps.db);
     const totals = formatTotals(todaysTotals(deps.db, startOfLocalDayIso()), nutritionGoals());
     await input.reply(removed > 0 ? `Cofnięto ostatni wpis. ${totals}` : "Brak wpisów do cofnięcia.");
+    return;
+  }
+
+  if (lower === "lista") {
+    const presets = listPresets(deps.db);
+    if (presets.length === 0) {
+      await input.reply("Nie masz jeszcze żadnych zapisanych produktów.");
+      return;
+    }
+    await input.reply(["📋 Twoje produkty:", "", presets.map(formatPresetLine).join("\n")].join("\n"));
+    return;
+  }
+
+  if (lower.startsWith("dodaj")) {
+    const fields = parsePresetFields(raw.slice(raw.indexOf("|") + 1));
+    if (!fields) {
+      await input.reply(presetFormatHint("dodaj"));
+      return;
+    }
+    try {
+      addPreset(deps.db, fields);
+    } catch {
+      await input.reply(`Produkt "${fields.name}" już istnieje. Użyj edytuj, żeby go zaktualizować.`);
+      return;
+    }
+    await input.reply(`Dodałem "${fields.name}" do listy produktów.`);
+    return;
+  }
+
+  if (lower.startsWith("edytuj")) {
+    const fields = parsePresetFields(raw.slice(raw.indexOf("|") + 1));
+    if (!fields) {
+      await input.reply(presetFormatHint("edytuj"));
+      return;
+    }
+    try {
+      updatePreset(deps.db, fields);
+    } catch {
+      await input.reply(`Nie znalazłem produktu "${fields.name}" na liście.`);
+      return;
+    }
+    await input.reply(`Zaktualizowałem "${fields.name}".`);
+    return;
+  }
+
+  if (lower.startsWith("usuń")) {
+    const name = raw.slice(raw.indexOf("|") + 1).trim();
+    if (!removePreset(deps.db, name)) {
+      await input.reply(`Nie znalazłem produktu "${name}" na liście.`);
+      return;
+    }
+    await input.reply(`Usunąłem "${name}" z listy produktów.`);
     return;
   }
 

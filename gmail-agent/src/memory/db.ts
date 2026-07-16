@@ -84,6 +84,16 @@ CREATE TABLE IF NOT EXISTS food_log (
   carbs_g    REAL NOT NULL,
   fat_g      REAL NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS food_presets (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  name       TEXT NOT NULL UNIQUE,
+  aliases    TEXT NOT NULL DEFAULT '[]',
+  kcal       REAL NOT NULL,
+  protein_g  REAL NOT NULL,
+  carbs_g    REAL NOT NULL,
+  fat_g      REAL NOT NULL
+);
 `;
 
 /** Add a column to an existing table if it's missing (CREATE TABLE IF NOT EXISTS can't alter). */
