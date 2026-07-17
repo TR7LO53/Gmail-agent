@@ -24,3 +24,16 @@ Everything logged from a single message, grouped under one timestamp. A Meal is 
 
 **Item**:
 One distinct food within a Meal (e.g. "2 eggs" is one Item; "2 eggs and toast" is a Meal with two Items). Each Item is resolved independently — some may come from a Preset, others from a Lookup, within the same Meal.
+
+**Manual Entry**:
+A food_log row created directly through the dashboard's food-management tab instead of the bot pipeline. On save, the food name is matched against Presets exactly as elsewhere; a match reuses that Preset's macros, no match creates a new Preset from the typed values. Always ends up with Provenance "preset".
+_Avoid_: Manual log, hand-entered food
+
+**Current Consumption**:
+Today's food_log rows, shown and editable in the dashboard. Editing changes only the weight; macros are recomputed from the matching Preset (or, if none exists, scaled proportionally from the row's own stored macros).
+
+**Last Day Summary**:
+Read-only total macros for yesterday — the most recently completed calendar day, distinct from Current Consumption (today).
+
+**Last Week Average**:
+Read-only average of daily total macros over the last 7 calendar days, including today.
