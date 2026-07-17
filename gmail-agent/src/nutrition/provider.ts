@@ -27,6 +27,8 @@ export interface NutritionItem {
   fat_g: number;
   /** false when no database match was found (macros are 0). */
   matched?: boolean;
+  /** Whether this item's macros came from a stored Preset or an external Lookup. */
+  provenance?: "preset" | "lookup";
 }
 
 export interface NutritionTotals {

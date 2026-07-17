@@ -116,5 +116,7 @@ export function openDb(dbPath?: string): DB {
   db.exec(SCHEMA);
   // Migration: older DBs have food_log without the per-item original (Polish) name.
   ensureColumn(db, "food_log", "original", "TEXT");
+  // Migration: older DBs have food_log without a provenance tag ('preset' | 'lookup').
+  ensureColumn(db, "food_log", "provenance", "TEXT");
   return db;
 }

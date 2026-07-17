@@ -21,6 +21,8 @@ export interface FoodRow {
   protein_g: number;
   carbs_g: number;
   fat_g: number;
+  /** Whether this item's macros came from a stored Preset or an external Lookup. */
+  provenance?: "preset" | "lookup";
 }
 
 function rowToFood(row: Record<string, unknown>): FoodRow {
@@ -38,6 +40,7 @@ function rowToFood(row: Record<string, unknown>): FoodRow {
     protein_g: row.protein_g as number,
     carbs_g: row.carbs_g as number,
     fat_g: row.fat_g as number,
+    provenance: (row.provenance as "preset" | "lookup" | null) ?? undefined,
   };
 }
 
@@ -53,8 +56,8 @@ export interface LogFoodInput {
 export function logFoodItems(db: DB, input: LogFoodInput): number {
   const ts = input.ts ?? new Date().toISOString();
   const stmt = db.prepare(
-    `INSERT INTO food_log (ts, source, raw_input, query_en, original, name, qty, unit, kcal, protein_g, carbs_g, fat_g)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO food_log (ts, source, raw_input, query_en, original, name, qty, unit, kcal, protein_g, carbs_g, fat_g, provenance)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   );
   for (const it of input.items) {
     stmt.run(
@@ -70,6 +73,7 @@ export function logFoodItems(db: DB, input: LogFoodInput): number {
       it.protein_g,
       it.carbs_g,
       it.fat_g,
+      it.provenance ?? null,
     );
   }
   return input.items.length;

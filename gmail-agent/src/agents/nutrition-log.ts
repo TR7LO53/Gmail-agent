@@ -1,11 +1,45 @@
 import type { LLMProvider } from "../llm/provider.js";
 import type { DB } from "../memory/db.js";
-import type { NutritionProvider, NutritionItem, NutritionTotals } from "../nutrition/provider.js";
+import type { NutritionProvider, NutritionItem, NutritionTotals, FoodQuery } from "../nutrition/provider.js";
+import { sumTotals } from "../nutrition/provider.js";
 import { parseFoodItems } from "./parse-food.js";
 import { logFoodItems, todaysTotals } from "../memory/food.js";
 import { startOfLocalDayIso } from "../memory/emails.js";
 import { nutritionGoals, type NutritionGoals } from "../config.js";
 import { ok, fail, type ToolResponse } from "../tools/types.js";
+import { listPresets } from "../memory/presets.js";
+import { matchPreset, mapPresetToItem } from "../nutrition/preset-match.js";
+
+/**
+ * Resolves each parsed food against the Preset list first (deterministic alias match), falling
+ * back to the external nutrition lookup only for foods with no Preset match. Never calls the
+ * lookup at all when every food resolves from a Preset.
+ */
+async function resolveItems(
+  items: FoodQuery[],
+  deps: LogMealDeps,
+): Promise<NutritionItem[]> {
+  const presets = listPresets(deps.db);
+  const resolved: (NutritionItem | undefined)[] = items.map((q) => {
+    const preset = matchPreset(presets, q);
+    return preset ? mapPresetToItem(preset, q) : undefined;
+  });
+
+  const unresolvedIndexes = resolved.reduce<number[]>((acc, item, i) => {
+    if (!item) acc.push(i);
+    return acc;
+  }, []);
+
+  if (unresolvedIndexes.length > 0) {
+    const lookupResult = await deps.nutrition.lookupItems(unresolvedIndexes.map((i) => items[i]));
+    unresolvedIndexes.forEach((origIndex, i) => {
+      const item = lookupResult.items[i];
+      if (item) resolved[origIndex] = { ...item, provenance: "lookup" };
+    });
+  }
+
+  return resolved.filter((i): i is NutritionItem => i !== undefined);
+}
 
 /**
  * Shared meal-logging pipeline used by BOTH the CLI and the Discord bot:
@@ -45,20 +79,21 @@ export async function logMeal(
     return fail("Couldn't recognise any food in that message.");
   }
 
-  // Look each item up in the nutrition database (USDA) and scale by grams.
-  let result;
+  // Resolve each item against the Preset list first, falling back to the nutrition database
+  // (USDA) only for foods with no Preset match, then scale by grams.
+  let resolvedItems: NutritionItem[];
   try {
-    result = await deps.nutrition.lookupItems(items);
+    resolvedItems = await resolveItems(items, deps);
   } catch (err) {
     return fail(`Nutrition lookup failed: ${err instanceof Error ? err.message : String(err)}`);
   }
-  if (result.items.length === 0) {
+  if (resolvedItems.length === 0) {
     return fail("Couldn't recognise any food in that message.");
   }
 
-  // Persist only the foods that actually matched the database (0-kcal misses aren't stored),
-  // but keep every parsed food in the returned result so the reply can confirm each part.
-  const stored = result.items.filter((i) => i.matched !== false);
+  // Persist only the foods that actually matched (0-kcal misses aren't stored), but keep every
+  // parsed food in the returned result so the reply can confirm each part.
+  const stored = resolvedItems.filter((i) => i.matched !== false);
   if (stored.length === 0) {
     return fail("Couldn't find those foods in the database. Try naming them more simply.");
   }
@@ -68,7 +103,7 @@ export async function logMeal(
   const dayTotals = todaysTotals(deps.db, startOfLocalDayIso());
 
   return ok(
-    { items: result.items, mealTotals: result.totals, dayTotals, goals: nutritionGoals(), queryEn },
+    { items: resolvedItems, mealTotals: sumTotals(resolvedItems), dayTotals, goals: nutritionGoals(), queryEn },
     { diagnostics: { source, items: stored.length } },
   );
 }

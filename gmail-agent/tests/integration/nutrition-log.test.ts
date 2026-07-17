@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { openDb } from "../../src/memory/db.js";
 import { logMeal } from "../../src/agents/nutrition-log.js";
 import { listTodaysFood, todaysTotals } from "../../src/memory/food.js";
+import { addPreset } from "../../src/memory/presets.js";
 import { startOfLocalDayIso } from "../../src/memory/emails.js";
 import type { LLMProvider } from "../../src/llm/provider.js";
 import type { NutritionProvider, FoodQuery } from "../../src/nutrition/provider.js";
@@ -50,6 +51,65 @@ describe("logMeal pipeline (USDA)", () => {
     expect(rows[0].query_en).toBe("100g egg");
     expect(todaysTotals(db, startOfLocalDayIso()).kcal).toBe(150);
     expect(r.data?.goals.kcal).toBeGreaterThan(0);
+  });
+
+  it("a message where every food matches a Preset never calls the nutrition lookup", async () => {
+    addPreset(db, { name: "jajko", aliases: ["egg"], kcal: 150, protein_g: 12, carbs_g: 1, fat_g: 10 });
+    let lookupCalled = false;
+    const nutrition: NutritionProvider = {
+      async lookupItems() {
+        lookupCalled = true;
+        return { items: [], totals: { kcal: 0, protein_g: 0, carbs_g: 0, fat_g: 0 } };
+      },
+    };
+
+    const r = await logMeal("jajko", "text", {
+      llm: parseTo([{ original: "jajko", name: "egg", grams: 100 }]),
+      nutrition,
+      db,
+    });
+
+    expect(r.success).toBe(true);
+    expect(lookupCalled).toBe(false);
+    const rows = listTodaysFood(db, startOfLocalDayIso());
+    expect(rows[0].kcal).toBe(150);
+    expect(rows[0].provenance).toBe("preset");
+  });
+
+  it("a mixed message logs one Meal with each Item resolved from its actual source", async () => {
+    addPreset(db, { name: "jajko", aliases: ["egg"], kcal: 150, protein_g: 12, carbs_g: 1, fat_g: 10 });
+    let lookupSeen: FoodQuery[] = [];
+    const nutrition: NutritionProvider = {
+      async lookupItems(items) {
+        lookupSeen = items;
+        return {
+          items: [
+            { original: items[0].original, name: "bread", qty: items[0].grams, kcal: 80, protein_g: 3, carbs_g: 15, fat_g: 1, matched: true },
+          ],
+          totals: { kcal: 80, protein_g: 3, carbs_g: 15, fat_g: 1 },
+        };
+      },
+    };
+
+    const r = await logMeal("jajko i chleb", "text", {
+      llm: parseTo([
+        { original: "jajko", name: "egg", grams: 100 },
+        { original: "chleb", name: "bread", grams: 50 },
+      ]),
+      nutrition,
+      db,
+    });
+
+    expect(r.success).toBe(true);
+    expect(lookupSeen).toEqual([{ original: "chleb", name: "bread", grams: 50 }]); // only the unmatched item hit the lookup
+    const rows = listTodaysFood(db, startOfLocalDayIso());
+    expect(rows).toHaveLength(2);
+    const presetRow = rows.find((row) => row.original === "jajko");
+    const lookupRow = rows.find((row) => row.original === "chleb");
+    expect(presetRow?.provenance).toBe("preset");
+    expect(presetRow?.kcal).toBe(150);
+    expect(lookupRow?.provenance).toBe("lookup");
+    expect(lookupRow?.kcal).toBe(80);
   });
 
   it("fails (nothing stored) when the parser finds no food", async () => {
