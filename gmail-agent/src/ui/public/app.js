@@ -75,7 +75,7 @@ function renderNutrition({ entries, totals, goals }) {
               <span class="food-name">${esc(e.original || e.name)}${e.qty ? ` <span class="who">· ${Math.round(e.qty)} g</span>` : ""}</span>
               <span class="who">${Math.round(e.kcal)} kcal</span>
             </div>
-            <div class="who food-matched">${esc(e.name)}</div>
+            <div class="who food-matched">${esc(e.name)}${e.provenance ? ` <span class="badge provenance-${esc(e.provenance)}">${e.provenance === "preset" ? "Preset" : "Lookup"}</span>` : ""}</div>
             <div class="food-macros">${round1(e.protein_g)} g P · ${round1(e.carbs_g)} g C · ${round1(e.fat_g)} g F</div>
           </div>`,
         )

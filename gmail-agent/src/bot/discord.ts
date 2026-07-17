@@ -74,10 +74,11 @@ function parsePresetFields(
   const [name, kcalStr, proteinStr, carbsStr, fatStr, aliasesStr] = fieldsPart
     .split("|")
     .map((p) => p.trim());
-  const kcal = Number(kcalStr);
-  const protein_g = Number(proteinStr);
-  const carbs_g = Number(carbsStr);
-  const fat_g = Number(fatStr);
+  const toNumber = (s: string | undefined) => (s ? Number(s.replace(",", ".")) : NaN);
+  const kcal = toNumber(kcalStr);
+  const protein_g = toNumber(proteinStr);
+  const carbs_g = toNumber(carbsStr);
+  const fat_g = toNumber(fatStr);
   if (!name || ![kcal, protein_g, carbs_g, fat_g].every(Number.isFinite)) return undefined;
   const aliases = aliasesStr ? aliasesStr.split(",").map((a) => a.trim()).filter(Boolean) : [];
   return { name, kcal, protein_g, carbs_g, fat_g, aliases };

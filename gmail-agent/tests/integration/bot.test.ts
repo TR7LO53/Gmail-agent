@@ -159,6 +159,18 @@ describe("handleIncoming routing", () => {
     expect(replies[0]).toContain("pierś z kurczaka");
   });
 
+  it("`dodaj` accepts Polish comma-decimal macros", async () => {
+    await handleIncoming(
+      { text: "dodaj | pierś z indyka |  98 | 18,57 | 0,27 | 2,47 | indyk pieczony ", reply },
+      makeDeps(db),
+    );
+    const saved = findPresetByName(db, "pierś z indyka");
+    expect(saved?.protein_g).toBeCloseTo(18.57);
+    expect(saved?.carbs_g).toBeCloseTo(0.27);
+    expect(saved?.fat_g).toBeCloseTo(2.47);
+    expect(replies[0]).toContain("Dodałem");
+  });
+
   it("`dodaj` with a missing macro replies with an error and saves nothing", async () => {
     await handleIncoming(
       { text: "dodaj | pierś z kurczaka | 165 | 31 | 0", reply },
