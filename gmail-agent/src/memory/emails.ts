@@ -50,6 +50,17 @@ export function startOfLocalDayIso(now: Date = new Date()): string {
   return new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
 }
 
+/**
+ * The UTC instant of the start of the local calendar day `n` days before today. Uses local-date
+ * field arithmetic (not raw ms subtraction) so it lands on the right local midnight across DST
+ * transitions, same as startOfLocalDayIso.
+ */
+export function startOfLocalDayNDaysAgoIso(n: number, now: Date = new Date()): string {
+  const d = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  d.setDate(d.getDate() - n);
+  return d.toISOString();
+}
+
 /** Insert or update an email record, preserving first_seen and bumping last_seen. */
 export function upsertEmail(db: DB, input: UpsertEmailInput): void {
   const now = new Date().toISOString();

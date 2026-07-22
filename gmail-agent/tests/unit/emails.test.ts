@@ -6,6 +6,7 @@ import {
   listUnread,
   applyUnreadSnapshot,
   startOfLocalDayIso,
+  startOfLocalDayNDaysAgoIso,
 } from "../../src/memory/emails.js";
 import type { DB } from "../../src/memory/db.js";
 
@@ -60,5 +61,24 @@ describe("emails store", () => {
     const row = listTodaysEmails(db, startOfLocalDayIso()).find((e) => e.id === "p");
     expect(row?.is_parcel).toBe(true);
     expect(row?.tracking_number).toBe("T1");
+  });
+});
+
+describe("startOfLocalDayNDaysAgoIso", () => {
+  it("correctly crosses a month boundary", () => {
+    const now = new Date(2026, 1, 1, 14, 30); // Feb 1, 2026, 14:30 local
+    const expected = new Date(2026, 0, 31).toISOString(); // Jan 31, 2026 local midnight
+    expect(startOfLocalDayNDaysAgoIso(1, now)).toBe(expected);
+  });
+
+  it("n=0 matches startOfLocalDayIso for the same instant", () => {
+    const now = new Date(2026, 6, 22, 9, 0);
+    expect(startOfLocalDayNDaysAgoIso(0, now)).toBe(startOfLocalDayIso(now));
+  });
+
+  it("goes back a full 7-day window", () => {
+    const now = new Date(2026, 6, 22, 9, 0);
+    const expected = new Date(2026, 6, 15).toISOString();
+    expect(startOfLocalDayNDaysAgoIso(7, now)).toBe(expected);
   });
 });

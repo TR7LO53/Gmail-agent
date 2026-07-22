@@ -6,10 +6,11 @@ import { SseBroadcaster, getDashboardSignature } from "./sse.js";
 /**
  * Stage 4 dashboard entry point (standalone, like src/mcp/server.ts).
  *
- * The server is a PURE VIEWER: it never scans, never touches Gmail or OpenAI. It reads the SQLite
- * DB and pushes an SSE `update` whenever the DB changes. Those changes come from a separately-run
- * `npm run heartbeat` (or `classify`/`track`) writing to the same DB (WAL allows a concurrent
- * reader). Bound to 127.0.0.1 — a personal, localhost-only tool.
+ * The server never scans, never touches Gmail or OpenAI. It reads the SQLite DB and pushes an SSE
+ * `update` whenever the DB changes — those changes mostly come from a separately-run `npm run
+ * heartbeat` (or `classify`/`track`) writing to the same DB (WAL allows a concurrent reader), with
+ * one exception: the food data tab writes to `food_presets`/`food_log` directly (see ADR 0002).
+ * Bound to 127.0.0.1 — a personal, localhost-only tool.
  */
 
 const PORT = Number(process.env.PORT) || 3000;
@@ -30,7 +31,7 @@ const poller = setInterval(() => {
 }, POLL_MS);
 
 const server = app.listen(PORT, "127.0.0.1", () => {
-  console.log(`Ggent dashboard running at http://localhost:${PORT}  (read-only)`);
+  console.log(`Ggent dashboard running at http://localhost:${PORT}`);
   console.log("Tip: run `npm run heartbeat` in another terminal to keep the data fresh.");
 });
 

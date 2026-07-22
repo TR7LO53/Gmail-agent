@@ -180,6 +180,337 @@ function renderDecisions({ decisions }) {
     .join("");
 }
 
+let editingFoodLogId = null;
+
+function renderFoodLog(entries) {
+  const el = $("foodLogTable");
+  if (!entries.length) {
+    el.innerHTML = `<p class="empty">Nothing logged yet today.</p>`;
+    return;
+  }
+  el.innerHTML = `<table class="data">
+    <thead><tr><th>Food</th><th>Weight (g)</th><th>Kcal</th><th>Protein g</th><th>Carbs g</th><th>Fat g</th><th></th></tr></thead>
+    <tbody>${entries
+      .map((e) => {
+        if (editingFoodLogId === e.id) {
+          return `<tr>
+            <td>${esc(e.original || e.name)}</td>
+            <td colspan="5">
+              <form class="foodEditForm" data-id="${e.id}">
+                <div class="form-grid">
+                  <label>Weight (g) <input name="qty" type="number" step="any" value="${e.qty ?? ""}" required /></label>
+                </div>
+                <div class="form-actions">
+                  <button type="submit" class="btn">Save</button>
+                  <button type="button" class="btn foodEditCancel">Cancel</button>
+                </div>
+                <div class="err foodEditErr"></div>
+              </form>
+            </td>
+          </tr>`;
+        }
+        return `<tr>
+          <td>${esc(e.original || e.name)}</td>
+          <td>${e.qty != null ? Math.round(e.qty) : "—"}</td>
+          <td>${Math.round(e.kcal)}</td>
+          <td>${round1(e.protein_g)}</td>
+          <td>${round1(e.carbs_g)}</td>
+          <td>${round1(e.fat_g)}</td>
+          <td>
+            <button class="btn foodEditBtn" data-id="${e.id}">Edit</button>
+            <button class="btn danger foodDeleteBtn" data-id="${e.id}">Delete</button>
+          </td>
+        </tr>`;
+      })
+      .join("")}</tbody>
+  </table>`;
+
+  el.querySelectorAll(".foodEditBtn").forEach((btn) =>
+    btn.addEventListener("click", () => {
+      editingFoodLogId = Number(btn.dataset.id);
+      refreshFoodLog();
+    }),
+  );
+  el.querySelectorAll(".foodDeleteBtn").forEach((btn) =>
+    btn.addEventListener("click", async () => {
+      if (!confirm("Delete this food log entry? This cannot be undone.")) return;
+      await fetch(`/api/food/${btn.dataset.id}`, { method: "DELETE" });
+      refreshFoodLog();
+      refreshFoodStats();
+    }),
+  );
+  el.querySelectorAll(".foodEditForm").forEach((form) => {
+    form.querySelector(".foodEditCancel").addEventListener("click", () => {
+      editingFoodLogId = null;
+      refreshFoodLog();
+    });
+    form.addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      const fd = new FormData(form);
+      const errEl = form.querySelector(".foodEditErr");
+      errEl.textContent = "";
+      const res = await fetch(`/api/food/${form.dataset.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ qty: Number(fd.get("qty")) }),
+      });
+      if (!res.ok) {
+        errEl.textContent = (await res.json().catch(() => ({}))).error || `Save failed (${res.status})`;
+        return;
+      }
+      editingFoodLogId = null;
+      refreshFoodLog();
+      refreshFoodStats();
+    });
+  });
+}
+
+async function refreshFoodLog() {
+  try {
+    const { entries } = await getJson("/api/food");
+    renderFoodLog(entries);
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+function renderFoodStatsPanel(elId, totals) {
+  $(elId).innerHTML = `<div class="kcal-big">${Math.round(totals.kcal)} <span class="goal">kcal</span></div>
+    <div class="food-macros">${round1(totals.protein_g)} g P · ${round1(totals.carbs_g)} g C · ${round1(totals.fat_g)} g F</div>`;
+}
+
+async function refreshFoodStats() {
+  try {
+    const { lastDay, lastWeekAverage } = await getJson("/api/food/stats");
+    renderFoodStatsPanel("lastDaySummary", lastDay);
+    renderFoodStatsPanel("lastWeekAverage", lastWeekAverage);
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+let presetsCache = [];
+
+// Mirrors matchPreset's exact-alias-match rule (src/nutrition/preset-match.ts): normalized equality
+// against the preset's name or one of its aliases, never a substring/fuzzy match.
+function clientMatchPreset(name) {
+  const needle = String(name || "").trim().toLowerCase();
+  if (!needle) return undefined;
+  return presetsCache.find(
+    (p) => p.name.trim().toLowerCase() === needle || p.aliases.some((a) => a.trim().toLowerCase() === needle),
+  );
+}
+
+function updateFoodCreateMacroFields() {
+  const form = $("foodCreateForm");
+  const name = form.elements.name.value;
+  const qty = Number(form.elements.qty.value);
+  const macroInputs = ["kcal", "protein_g", "carbs_g", "fat_g"].map((f) => form.elements[f]);
+  const preset = clientMatchPreset(name);
+  const hint = $("foodCreateMatchHint");
+
+  if (preset) {
+    const factor = qty > 0 ? qty / 100 : 0;
+    form.elements.kcal.value = round1(preset.kcal * factor);
+    form.elements.protein_g.value = round1(preset.protein_g * factor);
+    form.elements.carbs_g.value = round1(preset.carbs_g * factor);
+    form.elements.fat_g.value = round1(preset.fat_g * factor);
+    macroInputs.forEach((el) => (el.disabled = true));
+    hint.textContent = `Matches preset "${preset.name}" — macros auto-filled.`;
+  } else {
+    macroInputs.forEach((el) => (el.disabled = false));
+    hint.textContent = name.trim() ? "No matching preset — enter macros for this weight yourself." : "";
+  }
+}
+
+$("foodCreateForm").elements.name.addEventListener("input", updateFoodCreateMacroFields);
+$("foodCreateForm").elements.qty.addEventListener("input", updateFoodCreateMacroFields);
+
+$("foodCreateForm").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const form = ev.target;
+  const fd = new FormData(form);
+  const errEl = $("foodCreateErr");
+  errEl.textContent = "";
+  const name = String(fd.get("name") || "").trim();
+  const qty = Number(fd.get("qty"));
+  const matched = clientMatchPreset(name);
+  const payload = matched
+    ? { name, qty }
+    : {
+        name,
+        qty,
+        kcal: Number(fd.get("kcal")),
+        protein_g: Number(fd.get("protein_g")),
+        carbs_g: Number(fd.get("carbs_g")),
+        fat_g: Number(fd.get("fat_g")),
+      };
+  const res = await fetch("/api/food", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    errEl.textContent = (await res.json().catch(() => ({}))).error || `Save failed (${res.status})`;
+    return;
+  }
+  form.reset();
+  ["kcal", "protein_g", "carbs_g", "fat_g"].forEach((f) => (form.elements[f].disabled = false));
+  $("foodCreateMatchHint").textContent = "";
+  refreshFoodLog();
+  refreshPresets();
+  refreshFoodStats();
+});
+
+let editingPreset = null;
+
+function renderPresets(presets) {
+  const el = $("presetsTable");
+  if (!presets.length) {
+    el.innerHTML = `<p class="empty">No presets yet — add one below.</p>`;
+    return;
+  }
+  el.innerHTML = `<table class="data">
+    <thead><tr><th>Name</th><th>Aliases</th><th>Kcal</th><th>Protein g</th><th>Carbs g</th><th>Fat g</th><th></th></tr></thead>
+    <tbody>${presets
+      .map((p) => {
+        if (editingPreset === p.name) {
+          return `<tr>
+            <td>${esc(p.name)}</td>
+            <td colspan="6">
+              <form class="presetEditForm" data-name="${esc(p.name)}">
+                <div class="form-grid">
+                  <label>Aliases <input name="aliases" value="${esc(p.aliases.join(", "))}" /></label>
+                  <label>Kcal /100g <input name="kcal" type="number" step="any" value="${p.kcal}" required /></label>
+                  <label>Protein g /100g <input name="protein_g" type="number" step="any" value="${p.protein_g}" required /></label>
+                  <label>Carbs g /100g <input name="carbs_g" type="number" step="any" value="${p.carbs_g}" required /></label>
+                  <label>Fat g /100g <input name="fat_g" type="number" step="any" value="${p.fat_g}" required /></label>
+                </div>
+                <div class="form-actions">
+                  <button type="submit" class="btn">Save</button>
+                  <button type="button" class="btn presetEditCancel">Cancel</button>
+                </div>
+                <div class="err presetEditErr"></div>
+              </form>
+            </td>
+          </tr>`;
+        }
+        return `<tr>
+          <td>${esc(p.name)}</td>
+          <td>${esc(p.aliases.join(", "))}</td>
+          <td>${p.kcal}</td>
+          <td>${p.protein_g}</td>
+          <td>${p.carbs_g}</td>
+          <td>${p.fat_g}</td>
+          <td>
+            <button class="btn presetEditBtn" data-name="${esc(p.name)}">Edit</button>
+            <button class="btn danger presetDeleteBtn" data-name="${esc(p.name)}">Delete</button>
+          </td>
+        </tr>`;
+      })
+      .join("")}</tbody>
+  </table>`;
+
+  el.querySelectorAll(".presetEditBtn").forEach((btn) =>
+    btn.addEventListener("click", () => {
+      editingPreset = btn.dataset.name;
+      refreshPresets();
+    }),
+  );
+  el.querySelectorAll(".presetDeleteBtn").forEach((btn) =>
+    btn.addEventListener("click", async () => {
+      if (!confirm(`Delete preset "${btn.dataset.name}"? This cannot be undone.`)) return;
+      await fetch(`/api/presets/${encodeURIComponent(btn.dataset.name)}`, { method: "DELETE" });
+      refreshPresets();
+    }),
+  );
+  el.querySelectorAll(".presetEditForm").forEach((form) => {
+    form.querySelector(".presetEditCancel").addEventListener("click", () => {
+      editingPreset = null;
+      refreshPresets();
+    });
+    form.addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      const fd = new FormData(form);
+      const errEl = form.querySelector(".presetEditErr");
+      errEl.textContent = "";
+      const res = await fetch(`/api/presets/${encodeURIComponent(form.dataset.name)}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          aliases: String(fd.get("aliases") || "")
+            .split(",")
+            .map((a) => a.trim())
+            .filter(Boolean),
+          kcal: Number(fd.get("kcal")),
+          protein_g: Number(fd.get("protein_g")),
+          carbs_g: Number(fd.get("carbs_g")),
+          fat_g: Number(fd.get("fat_g")),
+        }),
+      });
+      if (!res.ok) {
+        errEl.textContent = (await res.json().catch(() => ({}))).error || `Save failed (${res.status})`;
+        return;
+      }
+      editingPreset = null;
+      refreshPresets();
+    });
+  });
+}
+
+async function refreshPresets() {
+  try {
+    const { presets } = await getJson("/api/presets");
+    presetsCache = presets;
+    renderPresets(presets);
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+$("presetCreateForm").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const form = ev.target;
+  const fd = new FormData(form);
+  const errEl = $("presetCreateErr");
+  errEl.textContent = "";
+  const res = await fetch("/api/presets", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      name: String(fd.get("name") || "").trim(),
+      aliases: String(fd.get("aliases") || "")
+        .split(",")
+        .map((a) => a.trim())
+        .filter(Boolean),
+      kcal: Number(fd.get("kcal")),
+      protein_g: Number(fd.get("protein_g")),
+      carbs_g: Number(fd.get("carbs_g")),
+      fat_g: Number(fd.get("fat_g")),
+    }),
+  });
+  if (!res.ok) {
+    errEl.textContent = (await res.json().catch(() => ({}))).error || `Save failed (${res.status})`;
+    return;
+  }
+  form.reset();
+  refreshPresets();
+});
+
+document.querySelectorAll(".tab").forEach((tab) =>
+  tab.addEventListener("click", () => {
+    document.querySelectorAll(".tab").forEach((t) => t.classList.remove("active"));
+    tab.classList.add("active");
+    $("view-dashboard").hidden = tab.dataset.view !== "dashboard";
+    $("view-food-data").hidden = tab.dataset.view !== "food-data";
+    if (tab.dataset.view === "food-data") {
+      refreshPresets();
+      refreshFoodLog();
+      refreshFoodStats();
+    }
+  }),
+);
+
 async function refresh() {
   try {
     const [parcels, summary, emails, food, decisions, status, logs] = await Promise.all([
@@ -211,7 +542,14 @@ $("toggleAll").addEventListener("click", () => {
 
 // Live updates: the server pushes `update` whenever the DB changes (external heartbeat/classify).
 const stream = new EventSource("/api/stream");
-stream.addEventListener("update", refresh);
+stream.addEventListener("update", () => {
+  refresh();
+  if (!$("view-food-data").hidden) {
+    refreshPresets();
+    refreshFoodLog();
+    refreshFoodStats();
+  }
+});
 stream.onopen = () => $("liveDot").classList.add("live");
 stream.onerror = () => $("liveDot").classList.remove("live");
 

@@ -5,10 +5,24 @@ import type { DB } from "../memory/db.js";
 import { listActiveParcels, listAllParcels } from "../memory/parcels.js";
 import { listDecisions } from "../memory/decisions.js";
 import { getMeta, getLastChecked } from "../memory/meta.js";
-import { listTodaysEmails, listUnread, listRecentEmails, startOfLocalDayIso } from "../memory/emails.js";
+import {
+  listTodaysEmails,
+  listUnread,
+  listRecentEmails,
+  startOfLocalDayIso,
+  startOfLocalDayNDaysAgoIso,
+} from "../memory/emails.js";
 import { listRecentObservations } from "../memory/observations.js";
 import { listRecentLogs } from "../memory/logs.js";
-import { listTodaysFood, todaysTotals } from "../memory/food.js";
+import {
+  listTodaysFood,
+  todaysTotals,
+  updateFoodLogWeight,
+  deleteFoodLogRow,
+  createManualFoodLogEntry,
+  lastDayTotals,
+  lastWeekAverage,
+} from "../memory/food.js";
 import { addPreset, listPresets, removePreset, updatePreset } from "../memory/presets.js";
 import { logEvent } from "../memory/logs.js";
 import { nutritionGoals } from "../config.js";
@@ -84,6 +98,64 @@ export function createApp(deps: AppDeps): express.Express {
       entries: listTodaysFood(db, since),
       totals: todaysTotals(db, since),
       goals: nutritionGoals(),
+    });
+  });
+
+  app.post("/api/food", (req, res) => {
+    let entry;
+    try {
+      entry = createManualFoodLogEntry(db, req.body);
+    } catch (err) {
+      res.status(400).json({ error: err instanceof Error ? err.message : String(err) });
+      return;
+    }
+    logEvent(db, {
+      source: "manual-edit",
+      message: `Logged "${entry.name}" (${entry.qty}g) manually`,
+      data: { table: "food_log", id: entry.id },
+    });
+    res.status(201).json({ entry });
+  });
+
+  app.put("/api/food/:id", (req, res) => {
+    const id = Number(req.params.id);
+    let entry;
+    try {
+      entry = updateFoodLogWeight(db, id, Number(req.body.qty));
+    } catch {
+      res.status(404).json({ error: `food_log row ${id} not found.` });
+      return;
+    }
+    logEvent(db, {
+      source: "manual-edit",
+      message: `Edited weight of food_log #${id} ("${entry.name}") to ${entry.qty}g`,
+      data: { table: "food_log", id },
+    });
+    res.json({ entry });
+  });
+
+  app.delete("/api/food/:id", (req, res) => {
+    const id = Number(req.params.id);
+    const removed = deleteFoodLogRow(db, id);
+    if (!removed) {
+      res.status(404).json({ error: `food_log row ${id} not found.` });
+      return;
+    }
+    logEvent(db, {
+      source: "manual-edit",
+      message: `Deleted food_log row #${id}`,
+      data: { table: "food_log", id },
+    });
+    res.json({ ok: true });
+  });
+
+  app.get("/api/food/stats", (_req, res) => {
+    const todayStart = startOfLocalDayIso();
+    const yesterdayStart = startOfLocalDayNDaysAgoIso(1);
+    const weekStart = startOfLocalDayNDaysAgoIso(6); // 7 calendar days including today
+    res.json({
+      lastDay: lastDayTotals(db, yesterdayStart, todayStart),
+      lastWeekAverage: lastWeekAverage(db, weekStart),
     });
   });
 

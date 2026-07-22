@@ -134,6 +134,45 @@ describe("dashboard API", () => {
     expect((await fetch(`${base}/nope`)).status).toBe(404);
   });
 
+  it("PUT /api/food/:id edits weight and logs a manual-edit entry", async () => {
+    const [before] = (await (await fetch(`${base}/api/food`)).json()).entries;
+    const res = await fetch(`${base}/api/food/${before.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ qty: 200 }),
+    });
+    expect(res.status).toBe(200);
+    const body: any = await res.json();
+    expect(body.entry.qty).toBe(200);
+    expect(body.entry.kcal).toBe(300); // proportional fallback: 150 kcal @ 100g -> 300 @ 200g
+
+    const logs: any = await (await fetch(`${base}/api/logs?limit=10`)).json();
+    const entry = logs.logs.find(
+      (l: { source: string; message: string }) => l.source === "manual-edit" && l.message.includes("weight"),
+    );
+    expect(entry).toBeTruthy();
+  });
+
+  it("DELETE /api/food/:id removes the row and logs a manual-edit entry", async () => {
+    const [row] = (await (await fetch(`${base}/api/food`)).json()).entries;
+    const res = await fetch(`${base}/api/food/${row.id}`, { method: "DELETE" });
+    expect(res.status).toBe(200);
+
+    const after: any = await (await fetch(`${base}/api/food`)).json();
+    expect(after.entries.find((e: { id: number }) => e.id === row.id)).toBeUndefined();
+
+    const logs: any = await (await fetch(`${base}/api/logs?limit=10`)).json();
+    const entry = logs.logs.find(
+      (l: { source: string; message: string }) => l.source === "manual-edit" && l.message.includes("Deleted food"),
+    );
+    expect(entry).toBeTruthy();
+  });
+
+  it("DELETE /api/food/:id returns 404 for an unknown row", async () => {
+    const res = await fetch(`${base}/api/food/999999`, { method: "DELETE" });
+    expect(res.status).toBe(404);
+  });
+
   it("GET /api/presets returns every stored preset", async () => {
     const body: any = await (await fetch(`${base}/api/presets`)).json();
     expect(body.presets).toHaveLength(1);
@@ -194,5 +233,55 @@ describe("dashboard API", () => {
   it("DELETE /api/presets/:name returns 404 for an unknown preset", async () => {
     const res = await fetch(`${base}/api/presets/${encodeURIComponent("does-not-exist")}`, { method: "DELETE" });
     expect(res.status).toBe(404);
+  });
+
+  it("POST /api/food with a matching preset auto-fills macros and logs a manual-edit entry", async () => {
+    const res = await fetch(`${base}/api/food`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "chicken breast", qty: 200 }),
+    });
+    expect(res.status).toBe(201);
+    const body: any = await res.json();
+    expect(body.entry.source).toBe("manual");
+    expect(body.entry.provenance).toBe("preset");
+    expect(body.entry.kcal).toBe(340); // chicken breast preset was updated to 170 kcal/100g above, scaled to 200g
+
+    const logs: any = await (await fetch(`${base}/api/logs?limit=10`)).json();
+    const entry = logs.logs.find(
+      (l: { source: string; message: string }) => l.source === "manual-edit" && l.message.includes("chicken breast"),
+    );
+    expect(entry).toBeTruthy();
+  });
+
+  it("POST /api/food with no matching preset creates one from the typed macros", async () => {
+    const res = await fetch(`${base}/api/food`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "zzz-new-food", qty: 100, kcal: 250, protein_g: 5, carbs_g: 40, fat_g: 8 }),
+    });
+    expect(res.status).toBe(201);
+    const body: any = await res.json();
+    expect(body.entry.kcal).toBe(250);
+
+    const presets: any = await (await fetch(`${base}/api/presets`)).json();
+    expect(presets.presets.some((p: { name: string }) => p.name === "zzz-new-food")).toBe(true);
+  });
+
+  it("POST /api/food with no matching preset and no macros returns 400", async () => {
+    const res = await fetch(`${base}/api/food`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "zzz-no-macros", qty: 100 }),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it("GET /api/food/stats returns lastDay and lastWeekAverage totals", async () => {
+    const res = await fetch(`${base}/api/food/stats`);
+    expect(res.status).toBe(200);
+    const body: any = await res.json();
+    expect(body.lastDay).toHaveProperty("kcal");
+    expect(body.lastWeekAverage).toHaveProperty("kcal");
   });
 });
