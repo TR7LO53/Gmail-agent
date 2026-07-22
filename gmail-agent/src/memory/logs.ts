@@ -7,7 +7,14 @@ import type { DB } from "./db.js";
  * can actually SEE the agent working.
  */
 export type LogLevel = "info" | "warn" | "error";
-export type LogSource = "heartbeat" | "gmail_search" | "classifier" | "tracker" | "inbox" | "summary";
+export type LogSource =
+  | "heartbeat"
+  | "gmail_search"
+  | "classifier"
+  | "tracker"
+  | "inbox"
+  | "summary"
+  | "manual-edit";
 
 export interface LogEntry {
   id: number;

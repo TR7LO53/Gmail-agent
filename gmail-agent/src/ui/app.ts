@@ -9,6 +9,8 @@ import { listTodaysEmails, listUnread, listRecentEmails, startOfLocalDayIso } fr
 import { listRecentObservations } from "../memory/observations.js";
 import { listRecentLogs } from "../memory/logs.js";
 import { listTodaysFood, todaysTotals } from "../memory/food.js";
+import { addPreset, listPresets, removePreset, updatePreset } from "../memory/presets.js";
+import { logEvent } from "../memory/logs.js";
 import { nutritionGoals } from "../config.js";
 import { SseBroadcaster } from "./sse.js";
 
@@ -23,13 +25,16 @@ export interface AppDeps {
 }
 
 /**
- * Build the read-only dashboard app. It only ever READS the DB — no Gmail, no OpenAI, no writes.
- * Automation lives in the separately-run heartbeat; this server just renders what's there and
- * pushes an SSE `update` when the DB changes (the server entry drives that via the poller).
+ * Build the dashboard app. Mostly a read-only view over the DB — no Gmail, no OpenAI. The one
+ * exception (see ADR 0002) is food data: /api/presets and /api/food accept writes from the food
+ * data tab, each logged to `logs` with source "manual-edit". Automation lives in the separately-run
+ * heartbeat; this server otherwise just renders what's there and pushes an SSE `update` when the DB
+ * changes (the server entry drives that via the poller).
  */
 export function createApp(deps: AppDeps): express.Express {
   const { db, broadcaster } = deps;
   const app = express();
+  app.use(express.json());
 
   app.get("/api/parcels", (req, res) => {
     const all = req.query.all === "true" || req.query.all === "1";
@@ -80,6 +85,46 @@ export function createApp(deps: AppDeps): express.Express {
       totals: todaysTotals(db, since),
       goals: nutritionGoals(),
     });
+  });
+
+  app.get("/api/presets", (_req, res) => {
+    res.json({ presets: listPresets(db) });
+  });
+
+  app.post("/api/presets", (req, res) => {
+    const preset = addPreset(db, req.body);
+    logEvent(db, {
+      source: "manual-edit",
+      message: `Created preset "${preset.name}"`,
+      data: { table: "food_presets", name: preset.name },
+    });
+    res.status(201).json({ preset });
+  });
+
+  app.put("/api/presets/:name", (req, res) => {
+    const name = req.params.name;
+    const preset = updatePreset(db, { ...req.body, name });
+    logEvent(db, {
+      source: "manual-edit",
+      message: `Updated preset "${preset.name}"`,
+      data: { table: "food_presets", name: preset.name },
+    });
+    res.json({ preset });
+  });
+
+  app.delete("/api/presets/:name", (req, res) => {
+    const name = req.params.name;
+    const removed = removePreset(db, name);
+    if (!removed) {
+      res.status(404).json({ error: `Preset "${name}" not found.` });
+      return;
+    }
+    logEvent(db, {
+      source: "manual-edit",
+      message: `Deleted preset "${name}"`,
+      data: { table: "food_presets", name },
+    });
+    res.json({ ok: true });
   });
 
   app.get("/api/observations", (req, res) => {

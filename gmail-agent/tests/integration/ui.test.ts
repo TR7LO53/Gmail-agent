@@ -8,6 +8,7 @@ import { setMeta, setLastChecked } from "../../src/memory/meta.js";
 import { upsertEmail } from "../../src/memory/emails.js";
 import { logFoodItems } from "../../src/memory/food.js";
 import { logEvent } from "../../src/memory/logs.js";
+import { addPreset } from "../../src/memory/presets.js";
 import { createApp } from "../../src/ui/app.js";
 import { SseBroadcaster } from "../../src/ui/sse.js";
 import type { DB } from "../../src/memory/db.js";
@@ -43,6 +44,8 @@ beforeAll(async () => {
   });
 
   logEvent(db, { source: "gmail_search", message: "Inbox scan → 3 message(s)", data: { returned: 3 } });
+
+  addPreset(db, { name: "chicken breast", kcal: 165, protein_g: 31, carbs_g: 0, fat_g: 3.6 });
 
   const app = createApp({ db, broadcaster: new SseBroadcaster() });
   server = app.listen(0);
@@ -129,5 +132,67 @@ describe("dashboard API", () => {
 
   it("unknown path returns 404", async () => {
     expect((await fetch(`${base}/nope`)).status).toBe(404);
+  });
+
+  it("GET /api/presets returns every stored preset", async () => {
+    const body: any = await (await fetch(`${base}/api/presets`)).json();
+    expect(body.presets).toHaveLength(1);
+    expect(body.presets[0].name).toBe("chicken breast");
+    expect(body.presets[0].kcal).toBe(165);
+  });
+
+  it("POST /api/presets creates a preset and logs a manual-edit entry", async () => {
+    const res = await fetch(`${base}/api/presets`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "oatmeal", kcal: 389, protein_g: 16.9, carbs_g: 66.3, fat_g: 6.9 }),
+    });
+    expect(res.status).toBe(201);
+    const body: any = await res.json();
+    expect(body.preset.name).toBe("oatmeal");
+
+    const list: any = await (await fetch(`${base}/api/presets`)).json();
+    expect(list.presets.map((p: { name: string }) => p.name)).toContain("oatmeal");
+
+    const logs: any = await (await fetch(`${base}/api/logs?limit=10`)).json();
+    const entry = logs.logs.find((l: { source: string }) => l.source === "manual-edit");
+    expect(entry).toBeTruthy();
+    expect(entry.message).toContain("oatmeal");
+  });
+
+  it("PUT /api/presets/:name updates macros and logs a manual-edit entry", async () => {
+    const res = await fetch(`${base}/api/presets/${encodeURIComponent("chicken breast")}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ kcal: 170, protein_g: 32, carbs_g: 0, fat_g: 4 }),
+    });
+    expect(res.status).toBe(200);
+    const body: any = await res.json();
+    expect(body.preset.kcal).toBe(170);
+
+    const logs: any = await (await fetch(`${base}/api/logs?limit=10`)).json();
+    const entry = logs.logs.find(
+      (l: { source: string; message: string }) => l.source === "manual-edit" && l.message.includes("Updated"),
+    );
+    expect(entry).toBeTruthy();
+  });
+
+  it("DELETE /api/presets/:name removes the preset and logs a manual-edit entry", async () => {
+    const res = await fetch(`${base}/api/presets/${encodeURIComponent("oatmeal")}`, { method: "DELETE" });
+    expect(res.status).toBe(200);
+
+    const list: any = await (await fetch(`${base}/api/presets`)).json();
+    expect(list.presets.map((p: { name: string }) => p.name)).not.toContain("oatmeal");
+
+    const logs: any = await (await fetch(`${base}/api/logs?limit=10`)).json();
+    const entry = logs.logs.find(
+      (l: { source: string; message: string }) => l.source === "manual-edit" && l.message.includes("Deleted"),
+    );
+    expect(entry).toBeTruthy();
+  });
+
+  it("DELETE /api/presets/:name returns 404 for an unknown preset", async () => {
+    const res = await fetch(`${base}/api/presets/${encodeURIComponent("does-not-exist")}`, { method: "DELETE" });
+    expect(res.status).toBe(404);
   });
 });
