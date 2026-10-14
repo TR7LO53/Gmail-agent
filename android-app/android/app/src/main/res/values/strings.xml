@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Ggent — jedzenie</string>
+    <string name="title_activity_main">Ggent — jedzenie</string>
+    <string name="package_name">pl.ggent.food</string>
+    <string name="custom_url_scheme">pl.ggent.food</string>
+</resources>
