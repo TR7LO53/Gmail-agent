@@ -13,6 +13,7 @@ export interface Preset extends Macros {
   piece_weight_g?: number;
   slot_tags?: readonly Slot[];
   usage_count?: number;
+  from_ggent?: boolean;
 }
 
 /** An immutable arithmetic snapshot; metadata can be added by the persistence layer. */
@@ -25,7 +26,7 @@ export interface FoodLogEntry extends FoodLogSnapshot {
   id?: string | number;
   ts: string;
   name: string;
-  preset_id?: string | number;
+  preset_id?: string | number | null;
   [metadata: string]: unknown;
 }
 

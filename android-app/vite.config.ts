@@ -4,6 +4,7 @@ import { fileURLToPath, URL } from 'node:url'
 
 export default defineConfig({
   plugins: [svelte()],
+  resolve: { conditions: ['browser'] },
   server: {
     fs: {
       allow: [fileURLToPath(new URL('.', import.meta.url))],

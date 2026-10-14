@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite --configLoader runner",
     "build": "npm run check && vite build --configLoader runner",
+    "build:dev": "npm run check && vite build --configLoader runner --mode development",
     "check": "svelte-check --workspace . --config ./svelte.config.js --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json",
     "test": "vitest run --configLoader runner",
     "preview": "vite preview",
@@ -15,13 +16,17 @@
   "dependencies": {
     "@capacitor-community/sqlite": "8.1.1",
     "@capacitor/android": "8.5.3",
-    "@capacitor/core": "8.5.3"
+    "@capacitor/core": "8.5.3",
+    "@capacitor/filesystem": "8.1.4",
+    "@capacitor/share": "8.0.3"
   },
   "devDependencies": {
     "@capacitor/cli": "8.5.3",
     "@sveltejs/vite-plugin-svelte": "5.1.1",
+    "@testing-library/svelte": "^5.4.2",
     "@tsconfig/svelte": "^5.0.8",
     "@types/node": "^24.13.3",
+    "jsdom": "^26.1.0",
     "svelte": "^5.57.2",
     "svelte-check": "^4.7.6",
     "typescript": "~6.0.2",

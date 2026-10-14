@@ -49,4 +49,27 @@ describe("totals", () => {
       "2025-12-27", "2025-12-28", "2025-12-29", "2025-12-30", "2025-12-31", "2026-01-01", "2026-01-02",
     ]);
   });
+
+  it("groups UTC offset timestamps by local date across both DST transitions", () => {
+    const priorTz = process.env.TZ;
+    process.env.TZ = "Europe/Warsaw";
+    try {
+      const spring = lastSevenDaysTotals([
+        row("2026-03-28T22:59:59.999Z", 10),
+        row("2026-03-28T23:00:00.000Z", 20),
+        row("2026-03-29T21:59:59.999Z", 30),
+        row("2026-03-29T22:00:00.000Z", 99),
+      ], new Date("2026-03-29T10:00:00Z"));
+      expect(spring[5]).toMatchObject({ date: "2026-03-28", kcal: 10 });
+      expect(spring[6]).toMatchObject({ date: "2026-03-29", kcal: 50 });
+      const autumn = lastSevenDaysTotals([
+        row("2026-10-24T21:59:59.999Z", 10),
+        row("2026-10-24T22:00:00.000Z", 20),
+        row("2026-10-25T22:59:59.999Z", 30),
+        row("2026-10-25T23:00:00.000Z", 99),
+      ], new Date("2026-10-25T10:00:00Z"));
+      expect(autumn[5]).toMatchObject({ date: "2026-10-24", kcal: 10 });
+      expect(autumn[6]).toMatchObject({ date: "2026-10-25", kcal: 50 });
+    } finally { if (priorTz === undefined) delete process.env.TZ; else process.env.TZ = priorTz; }
+  });
 });
