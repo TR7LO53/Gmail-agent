@@ -53,6 +53,24 @@ describe('PantryState settings', () => {
   })
 })
 
+describe('PantryState preset operations', () => {
+  it('delegates preset CRUD explicitly without optimistic changes or implicit refresh', async () => {
+    const calls: unknown[][] = []
+    const food = {
+      insertPreset: async (value: unknown) => { calls.push(['create', value]); return 42 },
+      updatePreset: async (id: number, value: unknown) => { calls.push(['update', id, value]) },
+      deletePreset: async (id: number) => { calls.push(['delete', id]) },
+    } as unknown as FoodRepository
+    const state = new PantryState(food)
+    const value = { name: 'Test', kcal: 1, protein_g: 2, carbs_g: 3, fat_g: 4, slot_tags: ['lunch'] as const }
+    expect(await state.createPreset(value)).toBe(42)
+    await state.updatePreset(42, value)
+    await state.deletePreset(42)
+    expect(calls).toEqual([['create', value], ['update', 42, value], ['delete', 42]])
+    expect(state.presets).toEqual([])
+  })
+})
+
 describe('PantryState history refresh', () => {
   it('loads the exact local seven-day window and derives today and chart totals from one snapshot', async () => {
     const priorTz = process.env.TZ

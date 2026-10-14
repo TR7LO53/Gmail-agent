@@ -27,7 +27,7 @@ afterEach(async () => { cleanup(); delete (globalThis as any).__backupUiDb; awai
 describe('backup settings UI', () => {
   it('imports from settings, refreshes starred tiles and reports counts without submitting settings', async () => {
     render(App)
-    await screen.findByText('Brak produktów. Dodaj je później w formularzu.')
+    await screen.findByText('Brak produktów. Dodaj pierwszy produkt.')
     await fireEvent.click(screen.getByRole('button', { name: 'Ustawienia' }))
     const file = Object.assign(new File(['ignored'], 'backup.json', { type: 'application/json' }), { contents: backup() })
     const input = screen.getByLabelText('Importuj kopię') as HTMLInputElement
@@ -41,7 +41,7 @@ describe('backup settings UI', () => {
 
   it('shows a Polish version error and leaves the database empty', async () => {
     render(App)
-    await screen.findByText('Brak produktów. Dodaj je później w formularzu.')
+    await screen.findByText('Brak produktów. Dodaj pierwszy produkt.')
     await fireEvent.click(screen.getByRole('button', { name: 'Ustawienia' }))
     const file = Object.assign(new File(['ignored'], 'bad.json'), { contents: backup(99) })
     await fireEvent.change(screen.getByLabelText('Importuj kopię'), { target: { files: [file] } })

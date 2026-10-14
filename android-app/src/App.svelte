@@ -14,16 +14,20 @@
   import { entriesForLocalDate } from './lib/history'
   import { parseFoodBackup, serializeFoodBackup } from './core/backup'
   import { readBackupFile, shareBackupFile } from './lib/backup-files'
+  import PresetForm from './components/PresetForm.svelte'
+  import { emptyPresetDraft, presetDraftToWrite, presetToDraft, type PresetDraft } from './lib/preset-form'
 
   let state: PantryState | undefined
   let loading = true
   let error = ''
   let dbStatus = ''
-  let screen: 'pantry' | 'pad' | 'entries' | 'settings' | 'history' = 'pantry'
+  let screen: 'pantry' | 'pad' | 'preset' | 'entries' | 'settings' | 'history' = 'pantry'
   let selectedDate = ''
   let search = ''
   let chosen: StoredPreset | undefined
   let editing: StoredEntry | undefined
+  let editingPresetId: number | undefined
+  let presetDraft: PresetDraft = emptyPresetDraft()
   let gramsText = ''
   let saving = false
   let deleting = 0
@@ -67,6 +71,62 @@
   function openEdit(entry: StoredEntry) {
     editing = entry; chosen = state?.presets.find((p) => p.id === entry.preset_id)
     gramsText = String(entry.qty).replace('.', ','); screen = 'pad'
+  }
+  function openNewPreset() { if (saving) return; editingPresetId = undefined; presetDraft = emptyPresetDraft(); error = ''; screen = 'preset' }
+  function openPresetEdit() {
+    if (!chosen || saving) return
+    editingPresetId = chosen.id
+    presetDraft = presetToDraft(chosen)
+    error = ''
+    screen = 'preset'
+  }
+  function cancelPresetForm() { if (saving) return; error = ''; screen = editingPresetId === undefined ? 'pantry' : 'pad' }
+  async function refreshAfterPresetChange(destination: 'pantry' | 'pad', editedId?: number) {
+    try {
+      await state!.refresh()
+      state = state
+      if (editedId !== undefined) chosen = state!.presets.find((preset) => preset.id === editedId)
+      screen = destination
+      if (destination === 'pantry') { chosen = undefined; editing = undefined; gramsText = '' }
+      error = ''
+    } catch {
+      state = state
+      chosen = undefined; editing = undefined; gramsText = ''; screen = 'pantry'
+      error = 'Produkt zapisano, ale nie udało się odświeżyć widoku.'
+    }
+  }
+  async function savePreset() {
+    if (!state || saving) return
+    saving = true; error = ''
+    try {
+      const value = presetDraftToWrite(presetDraft)
+      const editedId = editingPresetId
+      if (editedId === undefined) {
+        await state.createPreset(value)
+        search = ''
+        await refreshAfterPresetChange('pantry')
+      } else {
+        await state.updatePreset(editedId, value)
+        await refreshAfterPresetChange('pad', editedId)
+      }
+    } catch (cause) { error = cause instanceof Error ? cause.message : 'Nie udało się zapisać produktu.' }
+    finally { saving = false }
+  }
+  async function deletePreset() {
+    if (!state || editingPresetId === undefined || saving) return
+    saving = true; error = ''
+    try {
+      await state.deletePreset(editingPresetId)
+      try {
+        await state.refresh(); state = state
+        chosen = undefined; editing = undefined; gramsText = ''; screen = 'pantry'; error = ''
+      } catch {
+        state = state
+        chosen = undefined; editing = undefined; gramsText = ''; screen = 'pantry'
+        error = 'Produkt usunięto, ale nie udało się odświeżyć widoku.'
+      }
+    } catch (cause) { error = cause instanceof Error ? cause.message : 'Nie udało się usunąć produktu.' }
+    finally { saving = false }
   }
   function cancelPad() { const wasEditing = Boolean(editing); chosen = undefined; editing = undefined; gramsText = ''; screen = wasEditing ? 'entries' : 'pantry' }
   async function save() {
@@ -151,7 +211,7 @@
   function openHistory() { if (!state) return; selectedDate = dateKey(state.now); screen = 'history' }
   async function refreshData() {
     if (!state) return
-    try { await state.refresh(); state = state; reconcileHistoryDate() }
+    try { await state.refresh(); state = state; error = ''; reconcileHistoryDate() }
     catch { error = state.error || 'Błąd odświeżania.' }
   }
 </script>
@@ -164,7 +224,7 @@
   <main class="center-state">Trwała baza SQLite Pantry działa w aplikacji Android. Otwórz aplikację na telefonie.</main>
 {:else if screen === 'pad' && (chosen || editing)}
   <main class="pad-screen">
-    <header class="pad-header"><button class="text-button" onclick={cancelPad} aria-label="Anuluj i wróć">‹ Wróć</button><div><span>{editing ? 'Edycja wpisu' : 'Dodawanie produktu'}</span><h1>{editing?.name ?? chosen?.name}</h1></div></header>
+    <header class="pad-header"><button class="text-button" disabled={saving} onclick={cancelPad} aria-label="Anuluj i wróć">‹ Wróć</button><div><span>{editing ? 'Edycja wpisu' : 'Dodawanie produktu'}</span><h1>{editing?.name ?? chosen?.name}</h1></div>{#if chosen}<button class="icon-button preset-edit" disabled={saving} aria-label={`Edytuj produkt ${chosen.name}`} title="Edytuj produkt" onclick={openPresetEdit}>✎</button>{/if}</header>
     {#if error}<p class="alert" role="alert">{error}</p>{/if}
     <section class="amount" aria-live="polite"><strong>{gramsText || '0'} <small>g</small></strong><p>{Math.round(preview?.kcal ?? 0)} kcal</p><div class="macro-preview">B {preview?.protein_g ?? 0} g <span>W {preview?.carbs_g ?? 0} g</span><span>T {preview?.fat_g ?? 0} g</span></div></section>
     <section class="keypad" aria-label="Klawiatura gramów">
@@ -175,6 +235,9 @@
     {#if chosen?.piece_weight_g && chosen.piece_weight_g > 0}<button class="piece-button" onclick={plusPiece}>+1 szt. ({chosen.piece_weight_g} g)</button>{/if}
     <button class="primary add-button" disabled={!grams || saving} onclick={save}>{saving ? 'Zapisywanie…' : editing ? 'Zapisz' : `Dodaj ${Math.round(preview?.kcal ?? 0)} kcal`}</button>
   </main>
+{:else if screen === 'preset'}
+  {#if error}<p class="alert preset-alert" role="alert">{error}</p>{/if}
+  <PresetForm bind:draft={presetDraft} isEditing={editingPresetId !== undefined} busy={saving} on:save={savePreset} on:cancel={cancelPresetForm} on:delete={deletePreset} />
 {:else if screen === 'entries'}
   <main class="app-screen">
     <header class="sub-header"><button class="text-button" onclick={() => screen = 'pantry'}>‹ Pantry</button><h1>Dziś zjedzone</h1></header>
@@ -223,9 +286,9 @@
     </button>
     <section class="pantry-body"><label class="search"><span aria-hidden="true">⌕</span><input bind:value={search} placeholder="Szukaj produktu" aria-label="Szukaj produktu" /></label>
       {#if error}<p class="alert" role="alert">{error}</p><button class="small-button" onclick={refreshData}>Odśwież</button>
-      {:else if !state?.presets.length}<p class="empty">Brak produktów. Dodaj je później w formularzu.</p>
+      {:else if !state?.presets.length}<p class="empty">Brak produktów. Dodaj pierwszy produkt.</p>
       {:else if !ordered.length}<p class="empty">Brak produktów pasujących do wyszukiwania.</p>{/if}
-      <div class="tile-grid">{#each ordered as preset (preset.id)}<button class="tile" onclick={() => openPreset(preset)}><strong>{preset.name}{#if preset.from_ggent}<span class="origin-star" aria-label="Z Ggent" title="Z Ggent"> ★</span>{/if}</strong><span>{preset.kcal} kcal / 100 g</span></button>{/each}<button class="tile new-tile" onclick={() => {}}><strong>＋ Nowy produkt</strong><span>Wkrótce</span></button></div>
+      <div class="tile-grid">{#each ordered as preset (preset.id)}<button class="tile" onclick={() => openPreset(preset)}><strong>{preset.name}{#if preset.from_ggent}<span class="origin-star" aria-label="Z Ggent" title="Z Ggent"> ★</span>{/if}</strong><span>{preset.kcal} kcal / 100 g</span></button>{/each}<button class="tile new-tile" onclick={openNewPreset}><strong>＋ Nowy produkt</strong><span>Utwórz własny produkt</span></button></div>
       {#if devBuild}<button class="seed-button" onclick={seed}>Wczytaj produkty testowe</button>{#if dbStatus}<p class="seed-status">{dbStatus}</p>{/if}{/if}
     </section>
   </main>
