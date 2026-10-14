@@ -1,0 +1,5 @@
+# Android food app: on-device SQLite and a ported logic core
+
+The offline Android food app (Capacitor, `android-app/` in this repo) stores data in SQLite via `@capacitor-community/sqlite`, not in Capacitor Preferences or IndexedDB. The data is already tabular (`food_presets`, `food_log`), the 7-day history needs per-day grouping, and keeping the same table and field names as Ggent lets the JSON backup match Ggent's format, so a later desktop import or sync stays cheap.
+
+We considered importing `gmail-agent/src/memory/food.ts` and `presets.ts` directly. They take a synchronous `node:sqlite` handle, while the phone plugin is asynchronous, so direct reuse would need an adapter that fakes synchronous access — fragile. Instead the arithmetic (totals, grams → macros, proportional rescale, macro snapshot, tile order) is **ported** into a small pure TypeScript core with no database inside it, wrapped by a thin async SQLite layer. The two codebases share only the JSON backup format, not code; drift in the arithmetic is accepted as the cost of keeping each side simple and unit-testable.

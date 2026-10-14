@@ -37,3 +37,15 @@ Read-only total macros for yesterday — the most recently completed calendar da
 
 **Last Week Average**:
 Read-only average of daily total macros over the last 7 calendar days, including today.
+
+### Android food app
+
+**Pantry**:
+The main logging screen of the offline Android app: a search box over one grid of Preset tiles. Tapping a tile opens a number pad for grams. Logging only ever happens one Preset at a time.
+
+**Slot**:
+A time-of-day window taken from the phone's clock — Śniadanie (before 11:00), Obiad (11:00–17:00), Kolacja (after 17:00). Boundaries are user-editable. A Slot only changes tile order; it is not stored on log entries.
+_Avoid_: Meal (already means one bot message's worth of Items), Set, Zestaw
+
+**Slot tag**:
+A mark on a Preset saying it belongs to one or more Slots. During that Slot, tagged Presets come first in the Pantry grid (each group ordered by usage), with no headings.
