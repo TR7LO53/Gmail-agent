@@ -1,6 +1,8 @@
 # Ggent — Pantry na Androida
 
-Pantry zapisuje presety i wpisy jedzenia w trwałej bazie SQLite na Androidzie. Wpis przechowuje własny snapshot makr, więc późniejsza zmiana presetu nie zmienia historii. Ekran zawiera wyszukiwanie i kafelki produktów, klawiaturę gramów oraz listę dzisiejszych wpisów z edycją i usuwaniem. Kafelek „＋ Nowy produkt” jest na razie pustym stubem.
+Pantry zapisuje presety i wpisy jedzenia w trwałej bazie SQLite na Androidzie. Wpis przechowuje własny snapshot makr, więc późniejsza zmiana presetu nie zmienia historii. Ekran zawiera wyszukiwanie i kafelki produktów, klawiaturę gramów oraz listę dzisiejszych wpisów z edycją i usuwaniem. Kafelek „＋ Nowy produkt” otwiera formularz tworzenia. Ikona edycji na klawiaturze gramów otwiera formularz wybranego produktu.
+
+Formularz zapisuje nazwę, kcal i B/W/T na 100 g, opcjonalną wagę jednej sztuki oraz niezależne tagi Śniadanie, Obiad i Kolacja. Zmiana produktu dotyczy przyszłych wpisów; wcześniejsze wpisy zachowują nazwę i makra z chwili zapisu. Usunięcie produktu usuwa tylko kafelek, a jego historia pozostaje dostępna.
 
 ## Wymagania
 
@@ -71,13 +73,13 @@ Restart na urządzeniu sprawdza człowiek po merge. Model nie wykonywał tej kon
 
 ## Ograniczenia
 
-W tym wariancie nie ma formularza produktu, edycji presetów ani synchronizacji. Import i eksport kopii działają w aplikacji Android; podgląd webowy nie ma funkcjonalnej bazy SQLite. Zbudowanie APK i kontrola restartu wymagają Android SDK/JDK oraz urządzenia lub emulatora; sam build webowy nie potwierdza natywnego mostka SQLite.
+Import i eksport kopii działają w aplikacji Android; podgląd webowy nie ma funkcjonalnej bazy SQLite. Zbudowanie APK i kontrola restartu wymagają Android SDK/JDK oraz urządzenia lub emulatora; sam build webowy nie potwierdza natywnego mostka SQLite.
 
 ## Kopia zapasowa JSON
 
 W ekranie **Ustawienia** można udostępnić plik JSON przez systemowy share sheet lub wskazać plik do importu. Format ma `version: 1` oraz tablice `food_presets` i `food_log`. Presety zawierają `slots` (alias danych dla domenowych `slot_tags`); historia zachowuje zapisane makra i metadane każdego wpisu.
 
-Kopia obejmuje wszystkie Presety i całą historię, ale nie obejmuje `app_settings`, celów ani godzin granic Slot. Plik v1 przyjmuje wpisy z dodatnią ilością w gramach (`unit: "g"`); rekord bez ilości lub w innej jednostce jest odrzucany w całości. To format kopii Pantry, nie dowolny zrzut bazy desktopowej.
+Kopia obejmuje wszystkie Presety i całą historię, ale nie obejmuje `app_settings`, celów ani godzin granic Slot. Jeśli wpis historii wskazuje usunięty produkt, eksportowana kopia ustawia jego `preset_id` na `null`; wpis zachowuje zapisaną nazwę, ilość i makra, a lokalny rekord pozostaje bez zmian. Plik v1 przyjmuje wpisy z dodatnią ilością w gramach (`unit: "g"`); rekord bez ilości lub w innej jednostce jest odrzucany w całości. To format kopii Pantry, nie dowolny zrzut bazy desktopowej.
 
 Przy identycznej nazwie produktu pozostaje lokalny Preset, a produkt z kopii jest liczony jako pominięty. Historia nadal jest dopisywana, a jej `preset_id` wskazuje zachowany produkt. Nowe produkty importowane mają oznaczenie „Z Ggent” i gwiazdkę ★. Ponowny import pliku ponownie dopisuje wszystkie jego wpisy historii; import nie próbuje ich zgadywać ani usuwać jako duplikatów. Eksport wymaga wybrania miejsca lub aplikacji w share sheet. Aplikacja nie żąda uprawnień do publicznej pamięci; plik w cache aplikacji nie przetrwa jej odinstalowania.
 

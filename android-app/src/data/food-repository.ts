@@ -2,6 +2,7 @@ import { createFoodLogSnapshot, rescaleFoodLogEntry } from "../core/macros";
 import type { FoodLogEntry, Preset, Slot } from "../core/types";
 import type { SqlConnection } from "./schema";
 import { buildFoodBackup, parseFoodBackup, type FoodBackup } from "../core/backup";
+import { validatePresetWrite, type PresetWrite } from "../core/presets";
 
 export interface StoredPreset extends Preset { id: number; usage_count: number; from_ggent: boolean }
 export interface StoredEntry extends FoodLogEntry { id: number; preset_id: number | null; source: string; provenance: string | null; raw_input: string | null; query_en: string | null; original: string | null }
@@ -39,9 +40,31 @@ export class FoodRepository {
 
   async insertPreset(preset: Omit<Preset, "id" | "usage_count">): Promise<number> {
     return this.serialize(async () => {
-      const result = await this.db.run("INSERT INTO food_presets(name,aliases,kcal,protein_g,carbs_g,fat_g,piece_weight_g,slots,from_ggent) VALUES(?,?,?,?,?,?,?,?,0)", [preset.name, JSON.stringify(preset.aliases ?? []), ...macros.map((key) => preset[key]), preset.piece_weight_g ?? null, JSON.stringify(preset.slot_tags ?? [])]);
+      const value = validatePresetWrite(preset);
+      const result = await this.db.run("INSERT INTO food_presets(name,aliases,kcal,protein_g,carbs_g,fat_g,piece_weight_g,slots,from_ggent) VALUES(?,?,?,?,?,?,?,?,0)", [value.name, JSON.stringify(value.aliases ?? []), ...macros.map((key) => value[key]), value.piece_weight_g ?? null, JSON.stringify(value.slot_tags ?? [])]).catch((cause) => { throw this.nameConflict(cause) });
       if (!result.lastId) throw new Error("Nie udało się zapisać produktu");
       return result.lastId;
+    });
+  }
+
+  private nameConflict(cause: unknown): Error {
+    if (cause instanceof Error && /UNIQUE constraint failed: food_presets\.name/i.test(cause.message)) return new Error("Produkt o tej nazwie ju\u017c istnieje.");
+    return cause instanceof Error ? cause : new Error("Nie uda\u0142o si\u0119 zapisa\u0107 produktu.");
+  }
+
+  async updatePreset(id: number, preset: PresetWrite): Promise<void> {
+    return this.serialize(async () => {
+      const value = validatePresetWrite(preset);
+      if (!(await this.db.query("SELECT id FROM food_presets WHERE id=?", [id])).length) throw new Error("Nie znaleziono produktu.");
+      const result = await this.db.run("UPDATE food_presets SET name=?,kcal=?,protein_g=?,carbs_g=?,fat_g=?,piece_weight_g=?,slots=? WHERE id=?", [value.name, value.kcal, value.protein_g, value.carbs_g, value.fat_g, value.piece_weight_g ?? null, JSON.stringify(value.slot_tags ?? []), id]).catch((cause) => { throw this.nameConflict(cause) });
+      if (result.changes !== 1) throw new Error("Nie znaleziono produktu.");
+    });
+  }
+
+  async deletePreset(id: number): Promise<void> {
+    return this.serialize(async () => {
+      const result = await this.db.run("DELETE FROM food_presets WHERE id=?", [id]);
+      if (result.changes !== 1) throw new Error("Nie znaleziono produktu.");
     });
   }
 
@@ -49,9 +72,10 @@ export class FoodRepository {
     return this.db.transaction(async (tx) => {
       const presets = await tx.query<any>("SELECT * FROM food_presets ORDER BY id ASC");
       const entries = await tx.query<any>("SELECT * FROM food_log ORDER BY ts ASC, id ASC");
+      const presetIds = new Set(presets.map((preset) => Number(preset.id)));
       return buildFoodBackup(
         presets.map((r) => ({ id: Number(r.id), name: r.name, aliases: parseArray(r.aliases, "aliases", (v): v is string => typeof v === "string"), kcal: finite(r.kcal, "kcal"), protein_g: finite(r.protein_g, "protein_g"), carbs_g: finite(r.carbs_g, "carbs_g"), fat_g: finite(r.fat_g, "fat_g"), slots: parseArray(r.slots, "slots", validSlot), piece_weight_g: r.piece_weight_g == null ? null : Number(r.piece_weight_g) })),
-        entries.map((r) => ({ id: Number(r.id), ts: r.ts, source: r.source, raw_input: r.raw_input ?? null, query_en: r.query_en ?? null, original: r.original ?? null, name: r.name, qty: Number(r.qty), unit: r.unit, kcal: Number(r.kcal), protein_g: Number(r.protein_g), carbs_g: Number(r.carbs_g), fat_g: Number(r.fat_g), provenance: r.provenance ?? null, preset_id: r.preset_id == null ? null : Number(r.preset_id) })),
+        entries.map((r) => ({ id: Number(r.id), ts: r.ts, source: r.source, raw_input: r.raw_input ?? null, query_en: r.query_en ?? null, original: r.original ?? null, name: r.name, qty: Number(r.qty), unit: r.unit, kcal: Number(r.kcal), protein_g: Number(r.protein_g), carbs_g: Number(r.carbs_g), fat_g: Number(r.fat_g), provenance: r.provenance ?? null, preset_id: r.preset_id == null || !presetIds.has(Number(r.preset_id)) ? null : Number(r.preset_id) })),
       );
     });
   }

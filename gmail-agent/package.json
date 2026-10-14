@@ -10,6 +10,7 @@
     "classify": "tsx src/cli.ts classify",
     "track": "tsx src/cli.ts track",
     "heartbeat": "tsx src/cli.ts heartbeat",
+    "export-presets": "tsx src/scripts/export-presets.ts",
     "serve": "tsx src/ui/server.ts",
     "start": "tsx src/start.ts",
     "bot": "tsx src/bot/run.ts",

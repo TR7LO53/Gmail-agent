@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { FoodRepository } from '../src/data/food-repository'
 import { prepareSchema } from '../src/data/schema'
 import { openNodeSqlite } from './helpers/sqlite-node'
+import { parseFoodBackup, serializeFoodBackup } from '../src/core/backup'
 
 const dirs: string[] = []
 afterEach(async () => { await Promise.all(dirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true }))) })
@@ -47,6 +48,37 @@ describe('FoodRepository on file-backed SQLite', () => {
     const entry = await repo.add(id, 1)
     expect(await repo.listEntries(entry.ts, '2026-10-14T00:00:00.000Z')).toEqual([])
     expect((await repo.listEntries('2026-10-14T00:00:00.000Z', '2026-10-15T00:00:00.000Z')).map((item) => item.id)).toEqual([entry.id])
+    await db.close()
+  })
+
+  it('edits and deletes presets without changing history, and exports orphaned references as null', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'pantry-preset-crud-')); dirs.push(dir)
+    const path = join(dir, 'food.sqlite')
+    let db = openNodeSqlite(path); await prepareSchema(db)
+    const repo = new FoodRepository(db, () => new Date('2026-10-14T08:00:00.000Z'))
+    const id = await repo.insertPreset({ name: 'Owsianka', aliases: ['owsy'], kcal: 100, protein_g: 10, carbs_g: 20, fat_g: 5, slot_tags: ['breakfast'] })
+    const entry = await repo.add(id, 100)
+    const before = await db.query<any>('SELECT * FROM food_log WHERE id=?', [entry.id])
+    await db.run('UPDATE food_presets SET from_ggent=1 WHERE id=?', [id])
+    await repo.updatePreset(id, { name: 'Owsianka nowa', kcal: 200, protein_g: 20, carbs_g: 40, fat_g: 10, piece_weight_g: 25.5, slot_tags: ['lunch'] })
+    expect(await repo.listPresets()).toMatchObject([{ id, name: 'Owsianka nowa', aliases: ['owsy'], from_ggent: true, usage_count: 1, slot_tags: ['lunch'], piece_weight_g: 25.5 }])
+    expect(await repo.add(id, 100)).toMatchObject({ name: 'Owsianka nowa', kcal: 200, protein_g: 20, carbs_g: 40, fat_g: 10 })
+    await expect(repo.insertPreset({ name: 'Owsianka nowa', kcal: 1, protein_g: 1, carbs_g: 1, fat_g: 1 })).rejects.toThrow('już istnieje')
+    await expect(repo.updatePreset(999, { name: 'Missing', kcal: 1, protein_g: 1, carbs_g: 1, fat_g: 1 })).rejects.toThrow('Nie znaleziono produktu')
+    await repo.deletePreset(id)
+    expect(await db.query<any>('SELECT * FROM food_log WHERE id=?', [entry.id])).toEqual(before)
+    const backup = parseFoodBackup(serializeFoodBackup(await repo.exportBackup()))
+    expect(backup.food_presets).toEqual([])
+    expect(backup.food_log).toHaveLength(2)
+    expect(backup.food_log.find((item) => item.id === entry.id)).toMatchObject({ name: 'Owsianka', kcal: 100, preset_id: null })
+    expect(backup.food_log.find((item) => item.name === 'Owsianka nowa')).toMatchObject({ kcal: 200, preset_id: null })
+    await db.close()
+
+    db = openNodeSqlite(path); await prepareSchema(db)
+    const reopened = new FoodRepository(db)
+    expect(await reopened.listPresets()).toEqual([])
+    expect(await reopened.getEntry(entry.id)).toMatchObject({ name: 'Owsianka', kcal: 100, preset_id: id })
+    await expect(reopened.add(id, 10)).rejects.toThrow('Nie znaleziono produktu')
     await db.close()
   })
 
