@@ -93,7 +93,7 @@
       .tabs { display: flex; gap: 6px; max-width: 900px; margin: 0 auto; padding: 14px 24px 0; }
       .tab { background: transparent; color: var(--muted); border: 1px solid var(--line); border-bottom: none; border-radius: 8px 8px 0 0; padding: 8px 16px; cursor: pointer; font-size: 13px; }
       .tab.active { background: var(--panel); color: var(--text); }
-      .view[hidden] { display: none; }
+      .view[hidden], .row[hidden] { display: none; }
       table.data { width: 100%; border-collapse: collapse; font-size: 14px; }
       table.data th { text-align: left; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; padding: 6px 8px; border-bottom: 1px solid var(--line); }
       table.data td { padding: 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
@@ -123,22 +123,6 @@
     </nav>
 
     <main id="view-dashboard" class="view">
-      <section id="today">
-        <h2>Today</h2>
-        <div id="summary"><p class="empty">Loading…</p></div>
-        <div class="row" style="margin: 16px 0 6px">
-          <h3 class="sub-h">Recent emails</h3>
-          <span id="unreadCount" class="badge"></span>
-        </div>
-        <div id="lastScanLine" class="hist" style="margin-bottom: 8px"></div>
-        <div id="todayEmails"><p class="empty">Loading…</p></div>
-      </section>
-
-      <section id="activity">
-        <h2>Activity</h2>
-        <div id="logs"><p class="empty">Loading…</p></div>
-      </section>
-
       <section id="nutrition">
         <h2>Today's nutrition</h2>
         <div id="food"><p class="empty">Loading…</p></div>
@@ -152,9 +136,34 @@
         <div id="parcels"><p class="empty">Loading…</p></div>
       </section>
 
-      <section>
-        <h2>Decision history</h2>
-        <div id="decisions"><p class="empty">Loading…</p></div>
+      <section id="today">
+        <h2>Today</h2>
+        <div id="summary"><p class="empty">Loading…</p></div>
+        <div class="row" style="margin: 16px 0 6px">
+          <h3 class="sub-h">Recent emails</h3>
+          <span id="unreadCount" class="badge"></span>
+        </div>
+        <div id="lastScanLine" class="hist" style="margin-bottom: 8px"></div>
+        <div id="todayEmails"><p class="empty">Loading…</p></div>
+        <div class="row" id="emailsMoreRow" style="margin-top: 10px" hidden>
+          <button class="toggle" id="toggleEmails">Show more</button>
+        </div>
+      </section>
+
+      <section id="activity">
+        <div class="row">
+          <h2 style="margin: 0">Activity</h2>
+          <button class="toggle" id="toggleActivity" aria-expanded="false" aria-controls="logs">Show</button>
+        </div>
+        <div id="logs" style="margin-top: 14px" hidden></div>
+      </section>
+
+      <section id="decisionHistory">
+        <div class="row">
+          <h2 style="margin: 0">Decision history</h2>
+          <button class="toggle" id="toggleDecisions" aria-expanded="false" aria-controls="decisions">Show</button>
+        </div>
+        <div id="decisions" style="margin-top: 14px" hidden></div>
       </section>
     </main>
 

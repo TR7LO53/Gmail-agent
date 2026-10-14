@@ -2,6 +2,14 @@
 // No framework, no build step.
 
 let showAll = false;
+let emailsExpanded = false;
+let activityExpanded = false;
+let decisionsExpanded = false;
+let lastEmails = null;
+let lastLogs = null;
+let lastDecisions = null;
+
+const EMAILS_COLLAPSED_COUNT = 5;
 
 const $ = (id) => document.getElementById(id);
 
@@ -118,19 +126,27 @@ function renderSummary({ summary, generatedAt }) {
     : `<p class="empty">No summary yet. Run <code>npm run try -- summary</code> or a heartbeat tick.</p>`;
 }
 
-function renderTodayEmails({ recent, today, counts, lastChecked }) {
+function renderTodayEmails(data) {
+  lastEmails = data;
+  const { recent, today, counts, lastChecked } = data;
   $("unreadCount").textContent = `${counts.unread} unread`;
   $("unreadCount").className = "badge" + (counts.unread > 0 ? " unread" : "");
   $("lastScanLine").textContent = `Last Gmail check: ${timeAgo(lastChecked)} · ${counts.today} new today · ${counts.unread} unread`;
 
   const list = recent && recent.length ? recent : today || [];
   const el = $("todayEmails");
+  const moreRow = $("emailsMoreRow");
   if (!list.length) {
     el.innerHTML = `<p class="empty">No emails seen yet — run a heartbeat scan to populate.</p>`;
+    moreRow.hidden = true;
     return;
   }
+  const hiddenCount = Math.max(0, list.length - EMAILS_COLLAPSED_COUNT);
+  moreRow.hidden = hiddenCount === 0;
+  $("toggleEmails").textContent = emailsExpanded ? "Show less" : `Show ${hiddenCount} more`;
+  const visible = emailsExpanded ? list : list.slice(0, EMAILS_COLLAPSED_COUNT);
   const todayIds = new Set((today || []).map((e) => e.id));
-  el.innerHTML = list
+  el.innerHTML = visible
     .map(
       (e) => `<div class="email">
         <div class="row">
@@ -143,8 +159,13 @@ function renderTodayEmails({ recent, today, counts, lastChecked }) {
     .join("");
 }
 
-function renderLogs({ logs }) {
+function renderLogs(data) {
+  lastLogs = data;
+  const { logs } = data;
   const el = $("logs");
+  el.hidden = !activityExpanded;
+  $("toggleActivity").textContent = activityExpanded ? "Hide" : "Show";
+  $("toggleActivity").setAttribute("aria-expanded", String(activityExpanded));
   if (!logs || !logs.length) {
     el.innerHTML = `<p class="empty">No activity logged yet — run a heartbeat tick.</p>`;
     return;
@@ -160,8 +181,13 @@ function renderLogs({ logs }) {
     .join("");
 }
 
-function renderDecisions({ decisions }) {
+function renderDecisions(data) {
+  lastDecisions = data;
+  const { decisions } = data;
   const el = $("decisions");
+  el.hidden = !decisionsExpanded;
+  $("toggleDecisions").textContent = decisionsExpanded ? "Hide" : "Show";
+  $("toggleDecisions").setAttribute("aria-expanded", String(decisionsExpanded));
   if (!decisions.length) {
     el.innerHTML = `<p class="empty">No decisions logged yet.</p>`;
     return;
@@ -538,6 +564,21 @@ $("toggleAll").addEventListener("click", () => {
   showAll = !showAll;
   $("toggleAll").textContent = showAll ? "Show active" : "Show all";
   refresh();
+});
+
+$("toggleEmails").addEventListener("click", () => {
+  emailsExpanded = !emailsExpanded;
+  if (lastEmails) renderTodayEmails(lastEmails);
+});
+
+$("toggleActivity").addEventListener("click", () => {
+  activityExpanded = !activityExpanded;
+  if (lastLogs) renderLogs(lastLogs);
+});
+
+$("toggleDecisions").addEventListener("click", () => {
+  decisionsExpanded = !decisionsExpanded;
+  if (lastDecisions) renderDecisions(lastDecisions);
 });
 
 // Live updates: the server pushes `update` whenever the DB changes (external heartbeat/classify).

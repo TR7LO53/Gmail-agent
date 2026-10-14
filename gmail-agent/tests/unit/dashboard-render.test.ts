@@ -21,7 +21,14 @@ function loadApp(): Record<string, any> {
     <div id="parcels"></div>
     <div id="summary"></div>
     <div id="decisions"></div>
+    <button id="toggleDecisions"></button>
     <div id="logs"></div>
+    <button id="toggleActivity"></button>
+    <span id="unreadCount"></span>
+    <div id="lastScanLine"></div>
+    <div id="todayEmails"></div>
+    <div id="emailsMoreRow"></div>
+    <button id="toggleEmails"></button>
   `;
   const context = vm.createContext(window as any);
   const source = readFileSync(APP_JS_PATH, "utf-8");
@@ -32,6 +39,48 @@ function loadApp(): Record<string, any> {
   }
   return context;
 }
+
+const makeEmails = (n: number) => ({
+  recent: Array.from({ length: n }, (_, i) => ({ id: `e${i}`, subject: `Subject ${i}`, sender: "a@b.c", received_at: null })),
+  today: [],
+  counts: { unread: 0, today: 0 },
+  lastChecked: null,
+});
+
+describe("Today emails list", () => {
+  it("shows only five emails by default, with a toggle for the rest", () => {
+    const app = loadApp();
+    app.renderTodayEmails(makeEmails(8));
+    expect(document.querySelectorAll("#todayEmails .email").length).toBe(5);
+    expect((document.getElementById("emailsMoreRow") as HTMLElement).hidden).toBe(false);
+    expect(document.getElementById("toggleEmails")!.textContent).toBe("Show 3 more");
+  });
+
+  it("hides the toggle when there are five emails or fewer", () => {
+    const app = loadApp();
+    app.renderTodayEmails(makeEmails(5));
+    expect(document.querySelectorAll("#todayEmails .email").length).toBe(5);
+    expect((document.getElementById("emailsMoreRow") as HTMLElement).hidden).toBe(true);
+  });
+});
+
+describe("Activity section", () => {
+  it("is collapsed by default — no records visible", () => {
+    const app = loadApp();
+    app.renderLogs({ logs: [{ ts: "2026-10-14T10:00:00Z", level: "info", source: "heartbeat", message: "tick" }] });
+    expect((document.getElementById("logs") as HTMLElement).hidden).toBe(true);
+    expect(document.getElementById("toggleActivity")!.textContent).toBe("Show");
+  });
+});
+
+describe("Decision history section", () => {
+  it("is collapsed by default — no records visible", () => {
+    const app = loadApp();
+    app.renderDecisions({ decisions: [{ action_taken: "track", agent_reasoning: "x", timestamp: "2026-10-14T10:00:00Z" }] });
+    expect((document.getElementById("decisions") as HTMLElement).hidden).toBe(true);
+    expect(document.getElementById("toggleDecisions")!.textContent).toBe("Show");
+  });
+});
 
 describe("renderNutrition provenance tag", () => {
   let app: Record<string, any>;
