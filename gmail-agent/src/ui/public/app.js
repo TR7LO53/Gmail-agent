@@ -7,6 +7,8 @@ let activityExpanded = false;
 let decisionsExpanded = false;
 let lastEmails = null;
 let lastLogs = null;
+let foodsExpanded = false;
+let lastFood = null;
 let lastDecisions = null;
 
 const EMAILS_COLLAPSED_COUNT = 5;
@@ -43,40 +45,37 @@ function round1(n) {
   return Math.round((Number(n) || 0) * 10) / 10;
 }
 
-function meter(label, val, goal, unit) {
-  const pct = goal > 0 ? Math.min(val / goal, 1) * 100 : 0;
-  const over = val > goal;
-  return `<div class="meter ${over ? "over" : ""}">
-    <div class="lab"><span>${label}</span><span class="val">${val}/${goal} ${unit}${over ? " · over" : ""}</span></div>
-    <div class="track"><div class="fill" style="width:${pct}%"></div></div>
-  </div>`;
-}
-
 async function getJson(url) {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`${url} → ${res.status}`);
   return res.json();
 }
 
-function renderNutrition({ entries, totals, goals }) {
-  const el = $("food");
-  const kover = totals.kcal > goals.kcal;
-  const kpct = goals.kcal > 0 ? Math.min(totals.kcal / goals.kcal, 1) * 100 : 0;
-  const kcalMeter = `<div class="meter ${kover ? "over" : ""}">
-    <div class="lab">
-      <span class="kcal-big">${Math.round(totals.kcal)} <span class="goal">/ ${goals.kcal} kcal</span></span>
-      <span class="val">${kover ? "over goal" : ""}</span>
-    </div>
-    <div class="track"><div class="fill" style="width:${kpct}%"></div></div>
-  </div>`;
+// Compact one-line summary at the top of the dashboard: kcal/goal · P/goal · C/goal · F/goal.
+function renderTodayLine({ totals, goals }) {
+  const part = (key, label, dp) => {
+    const val = dp ? round1(totals[key]) : Math.round(totals[key]);
+    const over = totals[key] > goals[key];
+    return `<span class="${over ? "over" : ""}">${val}/${goals[key]}<small> ${label}</small></span>`;
+  };
+  $("todayLine").innerHTML =
+    part("kcal", "kcal", false) +
+    part("protein_g", "g P", true) +
+    part("carbs_g", "g C", true) +
+    part("fat_g", "g F", true);
+}
 
-  const macros =
-    meter("Protein", round1(totals.protein_g), goals.protein_g, "g") +
-    meter("Carbs", round1(totals.carbs_g), goals.carbs_g, "g") +
-    meter("Fat", round1(totals.fat_g), goals.fat_g, "g");
+const FOODS_VISIBLE_COUNT = 5;
+
+// Foods list is collapsed by default; when expanded it shows FOODS_VISIBLE_COUNT entries at once
+// and scrolls for the rest.
+function renderNutrition(data) {
+  lastFood = data;
+  const { entries } = data;
+  const el = $("food");
 
   const foods = entries.length
-    ? `<div class="foods">${entries
+    ? `<div class="foods foods-scroll">${entries
         .map(
           (e) => `<div class="food">
             <div class="row">
@@ -90,8 +89,22 @@ function renderNutrition({ entries, totals, goals }) {
         .join("")}</div>`
     : `<p class="empty" style="margin-top:12px">Nothing logged yet today — send Ggent a message on Discord.</p>`;
 
-  el.innerHTML =
-    kcalMeter + macros + `<h3 class="sub-h" style="margin:18px 0 8px">Foods</h3>` + foods;
+  el.innerHTML = foods;
+  el.hidden = !foodsExpanded;
+  $("toggleFoods").setAttribute("aria-expanded", String(foodsExpanded));
+  sizeFoodsScroll();
+}
+
+// Cap the list's height at the combined height of the first FOODS_VISIBLE_COUNT entries (they vary
+// in height). Needs the list to be visible to measure, so it runs after `hidden` is cleared.
+function sizeFoodsScroll() {
+  const list = document.querySelector("#food .foods-scroll");
+  if (!list) return;
+  list.style.maxHeight = "";
+  const items = list.querySelectorAll(".food");
+  if (items.length > FOODS_VISIBLE_COUNT) {
+    list.style.maxHeight = `${items[FOODS_VISIBLE_COUNT].offsetTop - items[0].offsetTop}px`;
+  }
 }
 
 function renderParcels({ parcels }) {
@@ -164,7 +177,6 @@ function renderLogs(data) {
   const { logs } = data;
   const el = $("logs");
   el.hidden = !activityExpanded;
-  $("toggleActivity").textContent = activityExpanded ? "Hide" : "Show";
   $("toggleActivity").setAttribute("aria-expanded", String(activityExpanded));
   if (!logs || !logs.length) {
     el.innerHTML = `<p class="empty">No activity logged yet — run a heartbeat tick.</p>`;
@@ -186,7 +198,6 @@ function renderDecisions(data) {
   const { decisions } = data;
   const el = $("decisions");
   el.hidden = !decisionsExpanded;
-  $("toggleDecisions").textContent = decisionsExpanded ? "Hide" : "Show";
   $("toggleDecisions").setAttribute("aria-expanded", String(decisionsExpanded));
   if (!decisions.length) {
     el.innerHTML = `<p class="empty">No decisions logged yet.</p>`;
@@ -293,25 +304,16 @@ function renderFoodLog(entries) {
 
 async function refreshFoodLog() {
   try {
-    const { entries, totals, goals } = await getJson("/api/food");
+    const { entries } = await getJson("/api/food");
     renderFoodLog(entries);
-    renderFoodStatsPanel("todaySummary", totals, goals);
   } catch (err) {
     console.error(err);
   }
 }
 
-function renderFoodStatsPanel(elId, totals, goals) {
-  const goal = goals ? ` / ${goals.kcal} kcal` : " kcal";
-  const of = (key) => (goals ? ` / ${goals[key]}` : "");
-  $(elId).innerHTML = `<div class="stat-row">
-    <div class="kcal-big">${Math.round(totals.kcal)} <span class="goal">${goal}</span></div>
-    <div class="stat-macros">
-      <span>${round1(totals.protein_g)}<small>${of("protein_g")} g P</small></span>
-      <span>${round1(totals.carbs_g)}<small>${of("carbs_g")} g C</small></span>
-      <span>${round1(totals.fat_g)}<small>${of("fat_g")} g F</small></span>
-    </div>
-  </div>`;
+function renderFoodStatsPanel(elId, totals) {
+  $(elId).innerHTML = `<div class="kcal-big">${Math.round(totals.kcal)} <span class="goal">kcal</span></div>
+    <div class="food-macros">${round1(totals.protein_g)} g P · ${round1(totals.carbs_g)} g C · ${round1(totals.fat_g)} g F</div>`;
 }
 
 async function refreshFoodStats() {
@@ -560,6 +562,7 @@ async function refresh() {
     renderSummary(summary);
     renderTodayEmails(emails);
     renderLogs(logs);
+    renderTodayLine(food);
     renderNutrition(food);
     renderParcels(parcels);
     renderDecisions(decisions);
@@ -580,12 +583,32 @@ $("toggleEmails").addEventListener("click", () => {
   if (lastEmails) renderTodayEmails(lastEmails);
 });
 
-$("toggleActivity").addEventListener("click", () => {
+// Collapsible sections: the whole header row is the toggle (click or Enter/Space), for both
+// opening and closing. The arrow is driven by the row's aria-expanded state (see CSS).
+function bindSectionToggle(id, toggle) {
+  const el = $(id);
+  el.addEventListener("click", toggle);
+  el.addEventListener("keydown", (ev) => {
+    if (ev.key === "Enter" || ev.key === " ") {
+      ev.preventDefault();
+      toggle();
+    }
+  });
+}
+
+bindSectionToggle("toggleFoods", () => {
+  foodsExpanded = !foodsExpanded;
+  if (lastFood) renderNutrition(lastFood);
+});
+
+window.addEventListener("resize", sizeFoodsScroll);
+
+bindSectionToggle("toggleActivity", () => {
   activityExpanded = !activityExpanded;
   if (lastLogs) renderLogs(lastLogs);
 });
 
-$("toggleDecisions").addEventListener("click", () => {
+bindSectionToggle("toggleDecisions", () => {
   decisionsExpanded = !decisionsExpanded;
   if (lastDecisions) renderDecisions(lastDecisions);
 });

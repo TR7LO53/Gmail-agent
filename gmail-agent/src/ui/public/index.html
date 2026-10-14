@@ -60,18 +60,17 @@
       .email .who { color: var(--muted); font-size: 12px; margin-top: 2px; }
       .sub-h { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 0; }
       #today { border-color: #33407a; }
-      .meter { margin: 12px 0; }
-      .meter .lab { display: flex; justify-content: space-between; align-items: baseline; font-size: 13px; margin-bottom: 5px; }
-      .meter .lab .val { color: var(--muted); }
-      .meter .track { height: 8px; background: var(--panel-2); border-radius: 999px; overflow: hidden; }
-      .meter .fill { height: 100%; background: var(--accent); border-radius: 999px; transition: width .3s ease; }
-      .meter.over .fill { background: var(--warn); }
-      .meter.over .val { color: var(--warn); }
       .kcal-big { font-size: 26px; font-weight: 600; }
       .kcal-big .goal { color: var(--muted); font-size: 15px; font-weight: 400; }
-      .stat-row { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 28px; }
-      .stat-macros { display: flex; gap: 18px; font-size: 20px; font-weight: 600; }
-      .stat-macros small { color: var(--muted); font-size: 13px; font-weight: 400; margin-left: 4px; }
+      .today-line { display: flex; flex-wrap: wrap; gap: 4px 22px; align-items: baseline; font-size: 18px; font-weight: 600; }
+      .today-line small { color: var(--muted); font-size: 13px; font-weight: 400; }
+      .today-line .over { color: var(--warn); }
+      .section-toggle { cursor: pointer; user-select: none; border-radius: 8px; }
+      .section-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+      .section-toggle .chev { color: var(--muted); font-size: 16px; transition: transform .15s ease; }
+      .section-toggle:hover .chev { color: var(--accent); }
+      .section-toggle[aria-expanded="true"] .chev { transform: rotate(90deg); }
+      .foods-scroll { overflow-y: auto; position: relative; padding-right: 6px; scrollbar-width: thin; scrollbar-color: #3a4166 transparent; }
       .food { padding: 10px 0; border-top: 1px solid var(--line); }
       .food:first-child { border-top: none; }
       .food-name { font-weight: 600; }
@@ -126,9 +125,17 @@
     </nav>
 
     <main id="view-dashboard" class="view">
+      <section id="todayStats">
+        <h2>Today's consumption</h2>
+        <div id="todayLine" class="today-line"><span class="empty">Loading…</span></div>
+      </section>
+
       <section id="nutrition">
-        <h2>Today's nutrition</h2>
-        <div id="food"><p class="empty">Loading…</p></div>
+        <div class="row section-toggle" id="toggleFoods" role="button" tabindex="0" aria-expanded="false" aria-controls="food">
+          <h2 style="margin: 0">Foods</h2>
+          <span class="chev" aria-hidden="true">▸</span>
+        </div>
+        <div id="food" style="margin-top: 14px" hidden><p class="empty">Loading…</p></div>
       </section>
 
       <section>
@@ -154,28 +161,23 @@
       </section>
 
       <section id="activity">
-        <div class="row">
+        <div class="row section-toggle" id="toggleActivity" role="button" tabindex="0" aria-expanded="false" aria-controls="logs">
           <h2 style="margin: 0">Activity</h2>
-          <button class="toggle" id="toggleActivity" aria-expanded="false" aria-controls="logs">Show</button>
+          <span class="chev" aria-hidden="true">▸</span>
         </div>
         <div id="logs" style="margin-top: 14px" hidden></div>
       </section>
 
       <section id="decisionHistory">
-        <div class="row">
+        <div class="row section-toggle" id="toggleDecisions" role="button" tabindex="0" aria-expanded="false" aria-controls="decisions">
           <h2 style="margin: 0">Decision history</h2>
-          <button class="toggle" id="toggleDecisions" aria-expanded="false" aria-controls="decisions">Show</button>
+          <span class="chev" aria-hidden="true">▸</span>
         </div>
         <div id="decisions" style="margin-top: 14px" hidden></div>
       </section>
     </main>
 
     <main id="view-food-data" class="view" hidden>
-      <section id="todaySummarySection">
-        <h2>Today</h2>
-        <div id="todaySummary"><p class="empty">Loading…</p></div>
-      </section>
-
       <section id="lastDaySummarySection">
         <h2>Last day summary</h2>
         <div id="lastDaySummary"><p class="empty">Loading…</p></div>
