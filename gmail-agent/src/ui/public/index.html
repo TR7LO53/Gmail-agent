@@ -69,6 +69,9 @@
       .meter.over .val { color: var(--warn); }
       .kcal-big { font-size: 26px; font-weight: 600; }
       .kcal-big .goal { color: var(--muted); font-size: 15px; font-weight: 400; }
+      .stat-row { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 28px; }
+      .stat-macros { display: flex; gap: 18px; font-size: 20px; font-weight: 600; }
+      .stat-macros small { color: var(--muted); font-size: 13px; font-weight: 400; margin-left: 4px; }
       .food { padding: 10px 0; border-top: 1px solid var(--line); }
       .food:first-child { border-top: none; }
       .food-name { font-weight: 600; }
@@ -168,6 +171,11 @@
     </main>
 
     <main id="view-food-data" class="view" hidden>
+      <section id="todaySummarySection">
+        <h2>Today</h2>
+        <div id="todaySummary"><p class="empty">Loading…</p></div>
+      </section>
+
       <section id="lastDaySummarySection">
         <h2>Last day summary</h2>
         <div id="lastDaySummary"><p class="empty">Loading…</p></div>
