@@ -1,0 +1,626 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>PROTOTYPE · Ggent Food (mobile)</title>
+<!--
+  PROTOTYPE — throwaway, do not ship.
+  Question: what should the offline Android food app (Capacitor) look like?
+  Three structurally different variants, switchable via ?variant=A|B|C,
+  the floating bar at the bottom, or the ← / → keys.
+  Data lives in memory only (reload = reset). Foods marked ★ are your real Ggent presets.
+-->
+<style>
+  :root {
+    --bg: #f5f6f8; --card: #fff; --ink: #15171c; --muted: #6b7280; --line: #e5e7eb;
+    --accent: #16a34a; --accent-soft: #dcfce7; --warn: #d97706; --over: #dc2626;
+    --p: #3b82f6; --c: #f59e0b; --f: #ef4444;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; }
+  body { background: #202227; font: 15px/1.35 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--ink); }
+  button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; }
+  input { font: inherit; color: inherit; }
+  #frame { position: relative; width: min(420px, 100vw); height: calc(100dvh - 60px); margin: 0 auto; background: var(--bg); overflow: hidden; }
+  @media (min-width: 500px) { #frame { margin-top: 12px; height: calc(100dvh - 84px); border-radius: 22px; box-shadow: 0 10px 40px #0008; } }
+  .screen { position: absolute; inset: 0; display: flex; flex-direction: column; }
+  .scroll { flex: 1; overflow-y: auto; }
+  .muted { color: var(--muted); }
+  .small { font-size: 12px; }
+  .row { display: flex; align-items: center; gap: 10px; }
+  .grow { flex: 1; min-width: 0; }
+  .ellip { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card { background: var(--card); border-radius: 14px; box-shadow: 0 1px 2px #0000000d; }
+  .btn { background: var(--accent); color: #fff; border-radius: 12px; padding: 12px 16px; font-weight: 600; }
+  .btn.ghost { background: transparent; color: var(--accent); border: 1.5px solid var(--accent); }
+  .btn.danger { background: transparent; color: var(--over); border: 1.5px solid var(--over); }
+  .btn.block { width: 100%; }
+  .field { width: 100%; border: 1.5px solid var(--line); border-radius: 10px; padding: 10px 12px; background: #fff; }
+  .field:focus { outline: none; border-color: var(--accent); }
+  .chip { border: 1.5px solid var(--line); border-radius: 999px; padding: 6px 12px; background: #fff; font-size: 14px; }
+  .chip.on { border-color: var(--accent); background: var(--accent-soft); }
+  .star { color: #eab308; }
+  .bar { height: 8px; border-radius: 99px; background: #e9ebef; overflow: hidden; }
+  .bar > i { display: block; height: 100%; border-radius: 99px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+
+  /* shared modal */
+  .modal-bg { position: absolute; inset: 0; background: #0006; display: flex; align-items: flex-end; z-index: 50; }
+  .modal { width: 100%; background: #fff; border-radius: 20px 20px 0 0; padding: 18px 16px 22px; max-height: 90%; overflow-y: auto; }
+  .modal h3 { margin: 0 0 12px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  label.l { display: block; font-size: 12px; color: var(--muted); margin: 0 0 4px; }
+
+  /* ---------- Variant A: classic tabs + ring + bottom sheet ---------- */
+  .a-head { padding: 18px 18px 6px; }
+  .a-head h1 { margin: 0; font-size: 22px; }
+  .a-ring { display: flex; align-items: center; gap: 18px; padding: 16px; margin: 8px 16px; }
+  .a-list { margin: 12px 16px 100px; }
+  .a-item { padding: 12px 14px; border-bottom: 1px solid var(--line); }
+  .a-item:last-child { border-bottom: 0; }
+  .fab { position: absolute; right: 18px; bottom: 78px; width: 58px; height: 58px; border-radius: 18px; background: var(--accent); color: #fff; font-size: 30px; box-shadow: 0 6px 16px #16a34a66; z-index: 5; }
+  .tabs { display: flex; background: #fff; border-top: 1px solid var(--line); }
+  .tabs button { flex: 1; padding: 8px 0 10px; font-size: 12px; color: var(--muted); display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .tabs button b { font-size: 19px; font-weight: 400; }
+  .tabs button.on { color: var(--accent); font-weight: 600; }
+  .sheet-bg { position: absolute; inset: 0; background: #0005; z-index: 20; display: flex; align-items: flex-end; }
+  .sheet { width: 100%; height: 82%; background: #fff; border-radius: 20px 20px 0 0; display: flex; flex-direction: column; }
+  .sheet .grab { width: 40px; height: 4px; background: #d1d5db; border-radius: 4px; margin: 8px auto; }
+  .a-food { padding: 11px 16px; border-bottom: 1px solid var(--line); }
+  .section-t { margin: 18px 16px 8px; font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+
+  /* ---------- Variant B: pantry grid + keypad ---------- */
+  .b-head { background: var(--ink); color: #fff; padding: 14px 16px 14px; }
+  .b-head .big { font-size: 30px; font-weight: 800; letter-spacing: -.02em; }
+  .b-head .bar { background: #ffffff26; margin: 8px 0 10px; }
+  .b-pill { background: #ffffff1a; border-radius: 99px; padding: 4px 10px; font-size: 13px; }
+  .b-icon { width: 40px; height: 40px; border-radius: 12px; background: #ffffff1a; font-size: 18px; }
+  .b-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 12px 12px 24px; }
+  .tile { aspect-ratio: 1 / 1; background: #fff; border-radius: 16px; padding: 10px; display: flex; flex-direction: column; justify-content: space-between; text-align: left; box-shadow: 0 1px 2px #0000000f; }
+  .tile .nm { font-weight: 650; font-size: 14px; line-height: 1.2; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .tile.new { border: 2px dashed #cbd5e1; background: transparent; box-shadow: none; align-items: center; justify-content: center; color: var(--muted); text-align: center; }
+  .pad { position: absolute; inset: 0; background: var(--bg); z-index: 20; display: flex; flex-direction: column; }
+  .pad .disp { font-size: 56px; font-weight: 800; text-align: center; letter-spacing: -.03em; }
+  .keys { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 0 16px; }
+  .keys button { background: #fff; border-radius: 14px; height: 58px; font-size: 24px; font-weight: 600; box-shadow: 0 1px 2px #0000000f; }
+  .keys button:active { background: #e5e7eb; }
+  .panel { position: absolute; inset: 0; background: var(--bg); z-index: 15; display: flex; flex-direction: column; }
+  .panel-h { padding: 14px 16px; background: #fff; border-bottom: 1px solid var(--line); }
+  .chart { display: flex; align-items: flex-end; gap: 8px; height: 170px; padding: 16px 16px 0; position: relative; }
+  .chart .col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 4px; }
+  .chart .col i { width: 100%; border-radius: 8px 8px 3px 3px; display: block; }
+  .chart .col.sel i { outline: 3px solid var(--ink); outline-offset: 1px; }
+  .goal-line { position: absolute; left: 16px; right: 16px; border-top: 2px dashed #94a3b8; }
+
+  /* ---------- Variant C: diary by meals + date nav ---------- */
+  .c-head { background: #fff; padding: 10px 12px 0; border-bottom: 1px solid var(--line); }
+  .c-nav button.arrow { width: 38px; height: 38px; border-radius: 50%; font-size: 22px; }
+  .c-week { display: flex; justify-content: space-between; padding: 8px 4px 10px; }
+  .c-day { display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 11px; color: var(--muted); width: 40px; padding: 4px 0; border-radius: 10px; }
+  .c-day b { font-size: 15px; color: var(--ink); }
+  .c-day.sel { background: var(--ink); }
+  .c-day.sel, .c-day.sel b { color: #fff; }
+  .c-sum { display: grid; grid-template-columns: repeat(4, 1fr); text-align: center; padding: 10px 0 12px; border-top: 1px solid var(--line); }
+  .c-sum div b { display: block; font-size: 17px; }
+  .c-meal { margin: 12px 12px 0; overflow: hidden; }
+  .c-meal-h { padding: 12px 14px; border-bottom: 1px solid var(--line); }
+  .c-entry { padding: 9px 14px; border-bottom: 1px solid #f1f2f4; }
+  .c-add { padding: 11px 14px; color: var(--accent); font-weight: 600; width: 100%; text-align: left; }
+  .drawer-bg { position: absolute; inset: 0; background: #0005; z-index: 30; }
+  .drawer { position: absolute; top: 0; bottom: 0; left: 0; width: 76%; background: #fff; padding: 22px 0; }
+  .drawer button { display: block; width: 100%; text-align: left; padding: 14px 22px; font-size: 16px; }
+  .c-row { padding: 12px 16px; border-bottom: 1px solid var(--line); background: #fff; }
+  .c-row.open { background: #f0fdf4; }
+
+  /* prototype switcher — deliberately not part of the design */
+  #switcher { position: fixed; left: 50%; bottom: 10px; transform: translateX(-50%); z-index: 999; display: flex; align-items: center; gap: 4px; background: #fde047; color: #111; border-radius: 99px; padding: 4px; box-shadow: 0 4px 18px #000a; font: 600 13px system-ui, sans-serif; white-space: nowrap; }
+  #switcher button { width: 34px; height: 34px; border-radius: 50%; background: #111; color: #fde047; font-size: 16px; }
+  #switcher span { padding: 0 10px; }
+</style>
+</head>
+<body>
+<div id="frame"><div id="app"></div><div id="modal"></div></div>
+<input type="file" id="import-file" accept="application/json,.json" hidden>
+<div id="switcher"><button data-sw="-1" aria-label="Poprzedni wariant">‹</button><span id="sw-label"></span><button data-sw="1" aria-label="Następny wariant">›</button></div>
+
+<script>
+/* ===================== helpers ===================== */
+const pad = n => String(n).padStart(2, "0");
+const iso = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const TODAY = iso(new Date());
+const addDays = (ds, n) => { const d = new Date(ds + "T12:00"); d.setDate(d.getDate() + n); return iso(d); };
+const DOW = ["nd", "pn", "wt", "śr", "cz", "pt", "sb"];
+const MON = ["sty", "lut", "mar", "kwi", "maj", "cze", "lip", "sie", "wrz", "paź", "lis", "gru"];
+const dObj = ds => new Date(ds + "T12:00");
+const nice = ds => { const d = dObj(ds); return `${DOW[d.getDay()]} ${d.getDate()} ${MON[d.getMonth()]}`; };
+const dayLabel = ds => ds === TODAY ? "Dziś" : ds === addDays(TODAY, -1) ? "Wczoraj" : nice(ds);
+const nowHM = () => { const d = new Date(); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+const r0 = x => Math.round(x);
+const num = x => Number(x) || 0;
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const norm = s => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/ł/g, "l");
+const MEALS = ["Śniadanie", "II śniadanie", "Obiad", "Kolacja", "Przekąski"];
+const mealFor = hm => hm < "10:00" ? MEALS[0] : hm < "12:30" ? MEALS[1] : hm < "16:30" ? MEALS[2] : hm < "20:30" ? MEALS[3] : MEALS[4];
+
+/* ===================== in-memory data ===================== */
+// Goals = Ggent defaults (NUTRITION_GOAL_*). Macros are per 100 g. mine = real preset from your Ggent DB.
+const S = { goals: { kcal: 2000, p: 150, c: 200, f: 70 }, foods: [], log: [], nextId: 1 };
+let fid = 1;
+const F = (name, kcal, p, c, f, piece, mine) => S.foods.push({ id: fid++, name, kcal, p, c, f, piece: piece || null, mine: !!mine });
+F("pierś z indyka", 98, 18.57, 0.27, 2.47, 0, 1);
+F("sałata", 16, 1.4, 1.5, 0.2, 0, 1);
+F("ogórek", 13, 0.7, 1.4, 0.1, 180, 1);
+F("kalafior", 27, 2.4, 2.6, 0.2, 0, 1);
+F("jajka gotowane", 140, 12.5, 0.6, 9.7, 55, 1);
+F("oliwa z oliwek", 897, 0, 0.2, 99.6, 0, 1);
+F("Marchew", 35, 0.9, 9, 0.2, 80, 1);
+F("płatki owsiane", 379, 13.2, 67.7, 6.5);
+F("mleko 2%", 50, 3.4, 4.8, 2);
+F("banan", 89, 1.1, 22.8, 0.3, 120);
+F("jabłko", 52, 0.3, 13.8, 0.2, 180);
+F("chleb żytni", 259, 8.5, 48, 3.3, 35);
+F("ryż biały, gotowany", 130, 2.7, 28, 0.3);
+F("pierś z kurczaka", 110, 23, 0, 1.2);
+F("twaróg półtłusty", 133, 18.7, 3.7, 4.7);
+F("jogurt naturalny", 61, 4.3, 6.2, 2);
+F("masło", 748, 0.7, 0.7, 82.5);
+F("ziemniaki gotowane", 77, 1.9, 17, 0.1);
+F("ser gouda", 356, 25, 2.2, 27, 20);
+F("makaron, gotowany", 158, 5.8, 31, 0.9);
+F("pomidor", 18, 0.9, 3.9, 0.2, 120);
+
+const food = id => S.foods.find(x => x.id === id);
+const macros = (fd, g) => ({ kcal: fd.kcal * g / 100, p: fd.p * g / 100, c: fd.c * g / 100, f: fd.f * g / 100 });
+function logFood(foodId, grams, date = TODAY, time = nowHM(), meal = mealFor(time)) {
+  const fd = food(foodId);
+  // Snapshot macros like the real food_log, so editing a product later doesn't rewrite history.
+  S.log.push({ id: S.nextId++, date, time, meal, foodId, name: fd.name, grams, ...macros(fd, grams) });
+}
+function setGrams(entry, grams) {
+  const fd = food(entry.foodId);
+  const m = fd ? macros(fd, grams) : { kcal: entry.kcal / entry.grams * grams, p: entry.p / entry.grams * grams, c: entry.c / entry.grams * grams, f: entry.f / entry.grams * grams };
+  Object.assign(entry, { grams }, m);
+}
+const dayEntries = ds => S.log.filter(e => e.date === ds).sort((a, b) => a.time.localeCompare(b.time));
+const totals = ds => dayEntries(ds).reduce((t, e) => ({ kcal: t.kcal + e.kcal, p: t.p + e.p, c: t.c + e.c, f: t.f + e.f }), { kcal: 0, p: 0, c: 0, f: 0 });
+const usage = () => S.log.reduce((m, e) => (m[e.foodId] = (m[e.foodId] || 0) + 1, m), {});
+const statusColor = (v, goal) => { const r = v / goal; return r > 1.1 ? "var(--over)" : r >= 0.9 ? "var(--accent)" : r > 0 ? "var(--warn)" : "#d1d5db"; };
+const search = q => S.foods.filter(fd => norm(fd.name).includes(norm(q || ""))).sort((a, b) => a.name.localeCompare(b.name, "pl"));
+
+// seed: today + 13 past days
+const by = n => S.foods.find(x => x.name === n).id;
+const seed = (ds, items) => items.forEach(([n, g, t]) => logFood(by(n), g, ds, t));
+seed(TODAY, [["płatki owsiane", 60, "07:40"], ["mleko 2%", 200, "07:40"], ["banan", 120, "07:41"], ["pierś z indyka", 135, "13:15"], ["ryż biały, gotowany", 200, "13:15"], ["sałata", 50, "13:16"], ["ogórek", 100, "13:16"], ["oliwa z oliwek", 10, "13:16"]]);
+const TPL = [
+  [["jajka gotowane", 165, "08:00"], ["chleb żytni", 70, "08:00"], ["pomidor", 120, "08:01"], ["pierś z kurczaka", 200, "14:00"], ["ziemniaki gotowane", 300, "14:00"], ["kalafior", 150, "14:01"], ["twaróg półtłusty", 200, "19:30"], ["jabłko", 180, "21:00"]],
+  [["płatki owsiane", 80, "07:30"], ["mleko 2%", 250, "07:30"], ["pierś z indyka", 150, "13:00"], ["makaron, gotowany", 250, "13:00"], ["oliwa z oliwek", 15, "13:00"], ["jogurt naturalny", 200, "17:00"], ["ser gouda", 40, "20:00"], ["chleb żytni", 70, "20:00"], ["masło", 10, "20:00"]],
+  [["jajka gotowane", 110, "09:00"], ["chleb żytni", 35, "09:00"], ["banan", 120, "11:30"], ["pierś z kurczaka", 150, "15:00"], ["ryż biały, gotowany", 150, "15:00"], ["Marchew", 160, "15:00"], ["twaróg półtłusty", 150, "20:00"]],
+  [["płatki owsiane", 50, "08:15"], ["jogurt naturalny", 150, "08:15"], ["pierś z indyka", 200, "13:30"], ["ziemniaki gotowane", 400, "13:30"], ["masło", 15, "13:30"], ["sałata", 100, "13:31"], ["ser gouda", 60, "19:00"], ["chleb żytni", 105, "19:00"], ["jabłko", 360, "22:00"]],
+];
+for (let i = 1; i <= 13; i++) seed(addDays(TODAY, -i), TPL[i % TPL.length]);
+
+/* ===================== UI state ===================== */
+const U = {
+  modal: null, // shared: {type:'edit', id, grams} | {type:'product', id|null, d:{...}}
+  A: { tab: "today", sheet: false, q: "", pick: null, grams: 100, histOpen: null, fq: "" },
+  B: { q: "", pick: null, grams: "", panel: null, histSel: TODAY },
+  C: { date: TODAY, add: null, q: "", open: null, grams: 100, menu: false, page: null, fq: "" },
+};
+
+/* ===================== shared bits (small, not layouts) ===================== */
+const macroRow = (label, v, goal, color) => `
+  <div style="margin:8px 0">
+    <div class="row small"><span class="grow"><span class="dot" style="background:${color}"></span> ${label}</span><span><b>${r0(v)}</b> / ${goal} g</span></div>
+    <div class="bar" style="margin-top:4px"><i style="width:${Math.min(100, v / goal * 100)}%;background:${color}"></i></div>
+  </div>`;
+const pbf = m => `B ${r0(m.p)} · W ${r0(m.c)} · T ${r0(m.f)}`;
+const gramChips = (fd, cur, act) => {
+  const opts = [50, 100, 150, 200];
+  let h = opts.map(g => `<button class="chip ${num(cur) === g ? "on" : ""}" data-act="${act}" data-a="${g}">${g} g</button>`).join("");
+  if (fd.piece) h += [1, 2].map(n => `<button class="chip ${num(cur) === fd.piece * n ? "on" : ""}" data-act="${act}" data-a="${fd.piece * n}">${n} szt (${fd.piece * n} g)</button>`).join("");
+  return `<div class="row" style="flex-wrap:wrap;gap:8px;margin:10px 0">${h}</div>`;
+};
+const preview = (fd, g) => { const m = macros(fd, num(g)); return `<div class="row" style="justify-content:space-between;margin:6px 0 14px"><b style="font-size:20px">${r0(m.kcal)} kcal</b><span class="muted">${pbf(m)}</span></div>`; };
+
+function settingsBody() {
+  const g = S.goals;
+  const inp = (k, lbl) => `<div><label class="l">${lbl}</label><input class="field" type="number" inputmode="numeric" id="goal-${k}" data-bind="S.goals.${k}" value="${g[k]}"></div>`;
+  return `
+    <div class="card" style="margin:12px 16px;padding:14px">
+      <h3 style="margin:0 0 10px">Dzienne cele</h3>
+      <div class="grid2">${inp("kcal", "Kalorie (kcal)")}${inp("p", "Białko (g)")}${inp("c", "Węglowodany (g)")}${inp("f", "Tłuszcz (g)")}</div>
+    </div>
+    <div class="card" style="margin:12px 16px;padding:14px">
+      <h3 style="margin:0 0 4px">Kopia zapasowa</h3>
+      <p class="muted small" style="margin:0 0 12px">Wszystko jest tylko na telefonie. Eksport zapisuje plik JSON (produkty + dziennik + cele), który możesz wczytać z powrotem.</p>
+      <div class="grid2"><button class="btn" data-act="export">⬇ Eksportuj</button><button class="btn ghost" data-act="import">⬆ Importuj</button></div>
+    </div>
+    <p class="muted small" style="margin:16px;text-align:center">${S.foods.length} produktów · ${S.log.length} wpisów w dzienniku</p>`;
+}
+function foodsList(qPath, q) {
+  const list = search(q);
+  return `
+    <div style="padding:12px 16px 8px" class="row">
+      <input class="field grow" id="${qPath}" data-bind="${qPath}" placeholder="Szukaj produktu…" value="${esc(q)}">
+      <button class="btn" data-act="newProduct">+ Nowy</button>
+    </div>
+    <div class="card" style="margin:0 16px 24px">
+      ${list.map(fd => `<button class="a-food row" style="width:100%;text-align:left" data-act="editProduct" data-a="${fd.id}">
+        <div class="grow"><div class="ellip">${fd.mine ? '<span class="star">★</span> ' : ""}${esc(fd.name)}</div>
+        <div class="muted small">na 100 g: B ${fd.p} · W ${fd.c} · T ${fd.f}${fd.piece ? ` · 1 szt = ${fd.piece} g` : ""}</div></div>
+        <b>${fd.kcal}</b><span class="muted small">kcal</span></button>`).join("") || `<p class="muted" style="padding:14px">Brak wyników</p>`}
+    </div>`;
+}
+
+/* ===================== Variant A — classic: tabs, ring, bottom sheet ===================== */
+function ring(t, g) {
+  const R = 52, C = 2 * Math.PI * R, pct = Math.min(1, t.kcal / g.kcal);
+  return `<svg width="128" height="128" viewBox="0 0 128 128" style="flex:none">
+    <circle cx="64" cy="64" r="${R}" fill="none" stroke="#e9ebef" stroke-width="12"/>
+    <circle cx="64" cy="64" r="${R}" fill="none" stroke="${statusColor(t.kcal, g.kcal)}" stroke-width="12" stroke-linecap="round"
+      stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - pct)}" transform="rotate(-90 64 64)"/>
+    <text x="64" y="62" text-anchor="middle" font-size="26" font-weight="800">${r0(t.kcal)}</text>
+    <text x="64" y="82" text-anchor="middle" font-size="12" fill="#6b7280">/ ${g.kcal} kcal</text></svg>`;
+}
+function A_today() {
+  const t = totals(TODAY), g = S.goals, left = g.kcal - t.kcal, es = dayEntries(TODAY);
+  return `
+    <div class="card a-ring">${ring(t, g)}
+      <div class="grow">
+        <div style="font-size:13px" class="muted">${left >= 0 ? "Zostało" : "Ponad cel"}</div>
+        <div style="font-size:24px;font-weight:800;margin-bottom:4px">${r0(Math.abs(left))} kcal</div>
+        ${macroRow("Białko", t.p, g.p, "var(--p)")}${macroRow("Węgle", t.c, g.c, "var(--c)")}${macroRow("Tłuszcz", t.f, g.f, "var(--f)")}
+      </div>
+    </div>
+    <div class="section-t">Zjedzone dziś (${es.length})</div>
+    <div class="card a-list">
+      ${es.map(e => `<button class="a-item row" style="width:100%;text-align:left" data-act="editEntry" data-a="${e.id}">
+        <span class="muted small" style="width:40px">${e.time}</span>
+        <div class="grow"><div class="ellip">${esc(e.name)}</div><div class="muted small">${e.grams} g · ${pbf(e)}</div></div>
+        <b>${r0(e.kcal)}</b></button>`).join("") || `<p class="muted" style="padding:14px">Nic jeszcze nie zjedzono — kliknij +</p>`}
+    </div>`;
+}
+function A_hist() {
+  const u = U.A, g = S.goals;
+  let h = "";
+  for (let i = 0; i < 14; i++) {
+    const ds = addDays(TODAY, -i), t = totals(ds), open = u.histOpen === ds;
+    h += `<button class="a-item" style="width:100%;text-align:left;display:block" data-act="aHist" data-a="${ds}">
+      <div class="row"><b class="grow">${dayLabel(ds)}</b><b style="color:${statusColor(t.kcal, g.kcal)}">${r0(t.kcal)}</b><span class="muted small">/ ${g.kcal} kcal</span></div>
+      <div class="bar" style="margin:6px 0 4px"><i style="width:${Math.min(100, t.kcal / g.kcal * 100)}%;background:${statusColor(t.kcal, g.kcal)}"></i></div>
+      <div class="muted small">${pbf(t)}</div>
+      ${open ? `<div style="margin-top:8px;padding-top:6px;border-top:1px dashed var(--line)">${dayEntries(ds).map(e => `<div class="row small" style="padding:3px 0"><span class="muted" style="width:40px">${e.time}</span><span class="grow ellip">${esc(e.name)} · ${e.grams} g</span><span>${r0(e.kcal)}</span></div>`).join("")}</div>` : ""}
+    </button>`;
+  }
+  return `<div class="card a-list" style="margin-top:8px">${h}</div>`;
+}
+function A_sheet() {
+  const u = U.A;
+  if (!u.pick) {
+    const use = usage(), list = search(u.q).sort((a, b) => u.q ? 0 : (use[b.id] || 0) - (use[a.id] || 0));
+    return `<div class="sheet-bg" data-act="aClose"><div class="sheet" data-act="noop">
+      <div class="grab"></div>
+      <div style="padding:4px 16px 10px"><h3 style="margin:0 0 10px">Dodaj produkt</h3>
+        <input class="field" id="a-q" data-bind="U.A.q" placeholder="Szukaj: jajka, ryż, banan…" value="${esc(u.q)}"></div>
+      <div class="scroll">${list.map(fd => `<button class="a-food row" style="width:100%;text-align:left" data-act="aPick" data-a="${fd.id}">
+        <div class="grow ellip">${fd.mine ? '<span class="star">★</span> ' : ""}${esc(fd.name)}</div><span class="muted small">${fd.kcal} kcal/100 g</span></button>`).join("")}</div>
+    </div></div>`;
+  }
+  const fd = food(u.pick);
+  return `<div class="sheet-bg" data-act="aClose"><div class="sheet" data-act="noop" style="height:auto">
+    <div class="grab"></div>
+    <div style="padding:4px 16px 20px">
+      <button class="muted small" data-act="aBack">‹ wróć do listy</button>
+      <h3 style="margin:8px 0 2px">${esc(fd.name)}</h3>
+      <div class="muted small">na 100 g: ${fd.kcal} kcal · B ${fd.p} · W ${fd.c} · T ${fd.f}</div>
+      ${gramChips(fd, u.grams, "aGrams")}
+      <div class="row"><input class="field grow" type="number" inputmode="numeric" id="a-grams" data-bind="U.A.grams" value="${u.grams}"><span class="muted">gramów</span></div>
+      ${preview(fd, u.grams)}
+      <button class="btn block" data-act="aAdd">Dodaj do dziennika</button>
+    </div>
+  </div></div>`;
+}
+function VariantA() {
+  const u = U.A;
+  const titles = { today: `Dziś · ${nice(TODAY)}`, hist: "Historia", foods: "Moje produkty", set: "Ustawienia" };
+  const body = u.tab === "today" ? A_today() : u.tab === "hist" ? A_hist() : u.tab === "foods" ? foodsList("U.A.fq", u.fq) : settingsBody();
+  const tabs = [["today", "◉", "Dziś"], ["hist", "▤", "Historia"], ["foods", "☰", "Produkty"], ["set", "⚙", "Ustawienia"]];
+  return `<div class="screen">
+    <header class="a-head"><h1>${titles[u.tab]}</h1></header>
+    <main class="scroll">${body}</main>
+    ${u.tab === "today" ? `<button class="fab" data-act="aOpen">+</button>` : ""}
+    <nav class="tabs">${tabs.map(([k, ic, l]) => `<button class="${u.tab === k ? "on" : ""}" data-act="aTab" data-a="${k}"><b>${ic}</b>${l}</button>`).join("")}</nav>
+    ${u.sheet ? A_sheet() : ""}
+  </div>`;
+}
+
+/* ===================== Variant B — pantry grid first, keypad entry ===================== */
+function B_keypad() {
+  const u = U.B, fd = food(u.pick), g = num(u.grams), m = macros(fd, g);
+  const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", fd.piece ? "szt" : "", "0", "del"];
+  return `<div class="pad">
+    <div class="row" style="padding:14px 16px"><button style="font-size:22px" data-act="bCancel">✕</button>
+      <div class="grow" style="text-align:center;font-weight:700" class="ellip">${esc(fd.name)}</div><span style="width:22px"></span></div>
+    <div class="muted small" style="text-align:center">${fd.kcal} kcal / 100 g${fd.piece ? ` · 1 szt = ${fd.piece} g` : ""}</div>
+    <div class="grow" style="display:flex;flex-direction:column;justify-content:center">
+      <div class="disp">${u.grams || "0"}<span style="font-size:24px;color:var(--muted)"> g</span></div>
+      <div style="text-align:center;margin-top:4px"><b style="font-size:20px">${r0(m.kcal)} kcal</b><div class="muted">${pbf(m)}</div></div>
+    </div>
+    <div class="keys">${keys.map(k => k === "" ? "<span></span>" :
+      `<button data-act="bKey" data-a="${k}" ${k === "szt" ? 'style="font-size:15px"' : ""}>${k === "del" ? "⌫" : k === "szt" ? "+1 szt" : k}</button>`).join("")}</div>
+    <div style="padding:12px 16px 18px"><button class="btn block" style="padding:16px;font-size:17px" data-act="bSave" ${g ? "" : "disabled style=\"opacity:.4;padding:16px\""}>Dodaj ${r0(m.kcal)} kcal</button></div>
+  </div>`;
+}
+function B_panel() {
+  const u = U.B, g = S.goals;
+  if (u.panel === "today") {
+    const es = dayEntries(TODAY);
+    return `<div class="panel"><div class="panel-h row"><button data-act="bPanel" data-a="">‹</button><b class="grow">Dziś zjedzone</b></div>
+      <div class="scroll">
+        <div class="card" style="margin:12px;padding:6px 14px">${macroRow("Białko", totals(TODAY).p, g.p, "var(--p)")}${macroRow("Węgle", totals(TODAY).c, g.c, "var(--c)")}${macroRow("Tłuszcz", totals(TODAY).f, g.f, "var(--f)")}</div>
+        <div class="card" style="margin:12px">${es.map(e => `<div class="a-item row">
+          <button class="grow row" style="text-align:left" data-act="editEntry" data-a="${e.id}"><div class="grow"><div class="ellip">${esc(e.name)}</div><div class="muted small">${e.time} · ${e.grams} g</div></div><b>${r0(e.kcal)}</b></button>
+          <button class="muted" style="font-size:18px;padding:0 4px" data-act="del" data-a="${e.id}">✕</button></div>`).join("") || `<p class="muted" style="padding:14px">Pusto</p>`}</div>
+      </div></div>`;
+  }
+  if (u.panel === "hist") {
+    const days = [...Array(7)].map((_, i) => addDays(TODAY, i - 6));
+    const max = Math.max(g.kcal * 1.3, ...days.map(d => totals(d).kcal));
+    const sel = u.histSel, st = totals(sel);
+    return `<div class="panel"><div class="panel-h row"><button data-act="bPanel" data-a="">‹</button><b class="grow">Ostatnie 7 dni</b></div>
+      <div class="scroll">
+        <div class="card" style="margin:12px;padding-bottom:10px">
+          <div class="chart"><div class="goal-line" style="bottom:${g.kcal / max * 150 + 20}px"></div>
+            ${days.map(d => { const t = totals(d); return `<button class="col ${d === sel ? "sel" : ""}" data-act="bHist" data-a="${d}">
+              <span class="small" style="font-weight:700">${r0(t.kcal)}</span><i style="height:${t.kcal / max * 150}px;background:${statusColor(t.kcal, g.kcal)}"></i>
+              <span class="small muted">${DOW[dObj(d).getDay()]}</span></button>`; }).join("")}
+          </div>
+          <div class="muted small" style="text-align:center;margin-top:6px">linia przerywana = cel ${g.kcal} kcal</div>
+        </div>
+        <div class="section-t">${dayLabel(sel)} · ${r0(st.kcal)} kcal · ${pbf(st)}</div>
+        <div class="card" style="margin:0 12px 20px">${dayEntries(sel).map(e => `<div class="a-item row small"><span class="muted" style="width:40px">${e.time}</span><span class="grow ellip">${esc(e.name)} · ${e.grams} g</span><b>${r0(e.kcal)}</b></div>`).join("")}</div>
+      </div></div>`;
+  }
+  return `<div class="panel"><div class="panel-h row"><button data-act="bPanel" data-a="">‹</button><b class="grow">Ustawienia</b></div><div class="scroll">${settingsBody()}</div></div>`;
+}
+function VariantB() {
+  const u = U.B, t = totals(TODAY), g = S.goals, left = g.kcal - t.kcal, use = usage();
+  const list = search(u.q).sort((a, b) => (use[b.id] || 0) - (use[a.id] || 0));
+  return `<div class="screen">
+    <header class="b-head">
+      <div class="row">
+        <button class="grow" style="text-align:left" data-act="bPanel" data-a="today">
+          <div class="small" style="opacity:.7">${left >= 0 ? "Zostało na dziś" : "Ponad cel o"}</div>
+          <div class="big">${r0(Math.abs(left))} <span style="font-size:16px;font-weight:600;opacity:.7">kcal</span></div>
+        </button>
+        <button class="b-icon" data-act="bPanel" data-a="hist" aria-label="Historia">📈</button>
+        <button class="b-icon" data-act="bPanel" data-a="set" aria-label="Ustawienia">⚙</button>
+      </div>
+      <div class="bar"><i style="width:${Math.min(100, t.kcal / g.kcal * 100)}%;background:${statusColor(t.kcal, g.kcal)}"></i></div>
+      <div class="row" style="gap:6px;flex-wrap:wrap">
+        <span class="b-pill"><span class="dot" style="background:var(--p)"></span> B ${r0(g.p - t.p)} g</span>
+        <span class="b-pill"><span class="dot" style="background:var(--c)"></span> W ${r0(g.c - t.c)} g</span>
+        <span class="b-pill"><span class="dot" style="background:var(--f)"></span> T ${r0(g.f - t.f)} g</span>
+        <span class="small grow" style="text-align:right;opacity:.6">dotknij = szczegóły</span>
+      </div>
+    </header>
+    <div style="padding:10px 12px 0"><input class="field" id="b-q" data-bind="U.B.q" placeholder="🔍 Szukaj w spiżarni…" value="${esc(u.q)}"></div>
+    <main class="scroll"><div class="b-grid">
+      ${list.map(fd => `<button class="tile" data-act="bPick" data-a="${fd.id}">
+        <div class="nm">${esc(fd.name)}</div>
+        <div class="row small" style="justify-content:space-between"><span class="muted">${fd.kcal} kcal</span>${fd.mine ? '<span class="star">★</span>' : use[fd.id] ? `<span class="muted">×${use[fd.id]}</span>` : ""}</div>
+      </button>`).join("")}
+      <button class="tile new" data-act="newProduct"><div style="font-size:28px">+</div><div class="small">Nowy produkt</div></button>
+    </div></main>
+    ${u.panel ? B_panel() : ""}
+    ${u.pick ? B_keypad() : ""}
+  </div>`;
+}
+
+/* ===================== Variant C — diary by meals, date navigation ===================== */
+function C_add() {
+  const u = U.C, use = usage();
+  const recentIds = [...new Set([...S.log].sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time)).map(e => e.foodId))].slice(0, 5);
+  const row = fd => {
+    const open = u.open === fd.id;
+    return `<div class="c-row ${open ? "open" : ""}">
+      <button class="row" style="width:100%;text-align:left" data-act="cOpen" data-a="${fd.id}">
+        <div class="grow ellip">${fd.mine ? '<span class="star">★</span> ' : ""}${esc(fd.name)}</div><span class="muted small">${fd.kcal} kcal/100 g</span><span style="color:var(--accent);font-size:20px;margin-left:6px">${open ? "–" : "+"}</span></button>
+      ${open ? `${gramChips(fd, u.grams, "cGrams")}
+        <div class="row"><input class="field" style="width:110px" type="number" inputmode="numeric" id="c-grams" data-bind="U.C.grams" value="${u.grams}"><span class="muted">g</span>
+        <span class="grow" style="text-align:right"><b>${r0(macros(fd, num(u.grams)).kcal)} kcal</b></span><button class="btn" data-act="cAdd" data-a="${fd.id}">Dodaj</button></div>` : ""}
+    </div>`;
+  };
+  const list = search(u.q);
+  return `<div class="panel">
+    <div class="panel-h"><div class="row"><button style="font-size:20px" data-act="cAddClose">←</button><b class="grow">Dodaj do: ${u.add}</b><span class="muted small">${dayLabel(u.date)}</span></div>
+      <input class="field" style="margin-top:10px" id="c-q" data-bind="U.C.q" placeholder="Szukaj produktu…" value="${esc(u.q)}"></div>
+    <div class="scroll">
+      ${u.q ? "" : `<div class="section-t">Ostatnio używane</div>${recentIds.map(id => row(food(id))).join("")}`}
+      <div class="section-t">${u.q ? "Wyniki" : "Wszystkie produkty"}</div>
+      ${list.map(row).join("")}
+    </div></div>`;
+}
+function VariantC() {
+  const u = U.C, g = S.goals, t = totals(u.date), es = dayEntries(u.date);
+  const d = dObj(u.date), monday = addDays(u.date, -((d.getDay() + 6) % 7));
+  const week = [...Array(7)].map((_, i) => addDays(monday, i));
+  const sum = (lbl, v, goal, unit) => `<div><b style="color:${goal - v < 0 ? "var(--over)" : "inherit"}">${r0(goal - v)}</b><span class="muted small">${lbl} ${unit}</span></div>`;
+  let page = "";
+  if (u.page) page = `<div class="panel"><div class="panel-h row"><button style="font-size:20px" data-act="cPage" data-a="">←</button><b class="grow">${u.page === "foods" ? "Moje produkty" : "Cele i kopia zapasowa"}</b></div>
+    <div class="scroll">${u.page === "foods" ? foodsList("U.C.fq", u.fq) : settingsBody()}</div></div>`;
+  return `<div class="screen">
+    <header class="c-head">
+      <div class="row c-nav">
+        <button style="font-size:22px;width:38px" data-act="cMenu">☰</button>
+        <button class="arrow" data-act="cDay" data-a="-1">‹</button>
+        <b class="grow" style="text-align:center;font-size:17px">${dayLabel(u.date)}${u.date === TODAY || u.date === addDays(TODAY, -1) ? `<span class="muted small" style="font-weight:400"> · ${nice(u.date)}</span>` : ""}</b>
+        <button class="arrow" data-act="cDay" data-a="1" ${u.date >= TODAY ? 'disabled style="opacity:.25"' : ""}>›</button>
+        <button class="chip" style="visibility:${u.date === TODAY ? "hidden" : "visible"}" data-act="cGo" data-a="${TODAY}">Dziś</button>
+      </div>
+      <div class="c-week">${week.map(ds => { const k = totals(ds).kcal, future = ds > TODAY;
+        return `<button class="c-day ${ds === u.date ? "sel" : ""}" ${future ? 'disabled style="opacity:.3"' : `data-act="cGo" data-a="${ds}"`}>
+          ${DOW[dObj(ds).getDay()]}<b>${dObj(ds).getDate()}</b><span class="dot" style="background:${future ? "transparent" : statusColor(k, g.kcal)}"></span></button>`; }).join("")}</div>
+      <div class="c-sum">${sum("kcal", t.kcal, g.kcal, "")}${sum("B", t.p, g.p, "g")}${sum("W", t.c, g.c, "g")}${sum("T", t.f, g.f, "g")}</div>
+      <div class="muted small" style="text-align:center;margin:-6px 0 8px">zostało · zjedzono ${r0(t.kcal)} z ${g.kcal} kcal</div>
+    </header>
+    <main class="scroll" style="padding-bottom:24px">
+      ${MEALS.map(m => { const me = es.filter(e => e.meal === m), mk = me.reduce((s, e) => s + e.kcal, 0);
+        return `<div class="card c-meal">
+          <div class="c-meal-h row"><b class="grow">${m}</b><span class="muted">${r0(mk)} kcal</span></div>
+          ${me.map(e => `<button class="c-entry row" style="width:100%;text-align:left" data-act="editEntry" data-a="${e.id}">
+            <div class="grow"><div class="ellip">${esc(e.name)}</div><div class="muted small">${e.grams} g · ${pbf(e)}</div></div><span>${r0(e.kcal)}</span></button>`).join("")}
+          <button class="c-add" data-act="cAddOpen" data-a="${m}">+ Dodaj</button>
+        </div>`; }).join("")}
+    </main>
+    ${u.add ? C_add() : ""}
+    ${page}
+    ${u.menu ? `<div class="drawer-bg" data-act="cMenu"><div class="drawer" data-act="noop">
+      <div style="padding:0 22px 14px;font-weight:800;font-size:20px">Ggent Food</div>
+      <button data-act="cPage" data-a="foods">🥕 Moje produkty</button>
+      <button data-act="cPage" data-a="set">🎯 Cele i kopia zapasowa</button>
+    </div></div>` : ""}
+  </div>`;
+}
+
+/* ===================== shared modal ===================== */
+function modalHtml() {
+  const m = U.modal;
+  if (!m) return "";
+  if (m.type === "edit") {
+    const e = S.log.find(x => x.id === m.id), fd = food(e.foodId) || { name: e.name, kcal: e.kcal / e.grams * 100, p: e.p / e.grams * 100, c: e.c / e.grams * 100, f: e.f / e.grams * 100 };
+    return `<div class="modal-bg" data-act="closeModal"><div class="modal" data-act="noop">
+      <h3>${esc(e.name)}</h3><div class="muted small">${dayLabel(e.date)} · ${e.time} · ${e.meal}</div>
+      ${gramChips(fd, m.grams, "mGrams")}
+      <div class="row"><input class="field grow" type="number" inputmode="numeric" id="m-grams" data-bind="U.modal.grams" value="${m.grams}"><span class="muted">g</span></div>
+      ${preview(fd, m.grams)}
+      <div class="grid2"><button class="btn danger" data-act="del" data-a="${e.id}">Usuń</button><button class="btn" data-act="saveEntry">Zapisz</button></div>
+    </div></div>`;
+  }
+  const d = m.d, inp = (k, lbl, type = "number") => `<div><label class="l">${lbl}</label><input class="field" ${type === "number" ? 'type="number" inputmode="decimal"' : ""} id="pd-${k}" data-bind="U.modal.d.${k}" value="${esc(d[k] ?? "")}"></div>`;
+  return `<div class="modal-bg" data-act="closeModal"><div class="modal" data-act="noop">
+    <h3>${m.id ? "Edytuj produkt" : "Nowy produkt"}</h3>
+    ${inp("name", "Nazwa", "text")}
+    <p class="muted small" style="margin:12px 0 6px">Wartości na 100 g (przepisz z etykiety)</p>
+    <div class="grid2">${inp("kcal", "Kalorie")}${inp("p", "Białko g")}${inp("c", "Węglowodany g")}${inp("f", "Tłuszcz g")}</div>
+    <div style="margin-top:10px">${inp("piece", "Waga 1 sztuki w g (opcjonalnie)")}</div>
+    <button class="btn block" style="margin-top:16px" data-act="saveProduct" ${String(d.name || "").trim() ? "" : 'disabled style="opacity:.4;margin-top:16px"'}>Zapisz produkt</button>
+  </div></div>`;
+}
+
+/* ===================== actions ===================== */
+const ACT = {
+  noop() {},
+  closeModal() { U.modal = null; },
+  editEntry(a) { const e = S.log.find(x => x.id === +a); U.modal = { type: "edit", id: e.id, grams: e.grams }; },
+  mGrams(a) { U.modal.grams = +a; },
+  saveEntry() { const e = S.log.find(x => x.id === U.modal.id); if (num(U.modal.grams) > 0) setGrams(e, num(U.modal.grams)); U.modal = null; },
+  del(a) { S.log = S.log.filter(x => x.id !== +a); U.modal = null; },
+  newProduct() { U.modal = { type: "product", id: null, d: { name: "", kcal: "", p: "", c: "", f: "", piece: "" } }; },
+  editProduct(a) { const fd = food(+a); U.modal = { type: "product", id: fd.id, d: { ...fd, piece: fd.piece || "" } }; },
+  saveProduct() {
+    const d = U.modal.d, v = { name: String(d.name).trim(), kcal: num(d.kcal), p: num(d.p), c: num(d.c), f: num(d.f), piece: num(d.piece) || null };
+    if (U.modal.id) Object.assign(food(U.modal.id), v); else S.foods.push({ id: fid++, mine: false, ...v });
+    U.modal = null;
+  },
+  export() {
+    const blob = new Blob([JSON.stringify({ version: 1, goals: S.goals, foods: S.foods, log: S.log }, null, 2)], { type: "application/json" });
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `ggent-food-${TODAY}.json`; a.click();
+  },
+  import() { document.getElementById("import-file").click(); },
+  // A
+  aTab(a) { U.A.tab = a; },
+  aOpen() { Object.assign(U.A, { sheet: true, pick: null, q: "" }); },
+  aClose() { U.A.sheet = false; },
+  aBack() { U.A.pick = null; },
+  aPick(a) { const fd = food(+a); Object.assign(U.A, { pick: fd.id, grams: fd.piece || 100 }); },
+  aGrams(a) { U.A.grams = +a; },
+  aAdd() { if (num(U.A.grams) > 0) { logFood(U.A.pick, num(U.A.grams)); U.A.sheet = false; } },
+  aHist(a) { U.A.histOpen = U.A.histOpen === a ? null : a; },
+  // B
+  bPick(a) { Object.assign(U.B, { pick: +a, grams: "" }); },
+  bCancel() { U.B.pick = null; },
+  bKey(a) {
+    const u = U.B;
+    if (a === "del") u.grams = u.grams.slice(0, -1);
+    else if (a === "szt") u.grams = String(num(u.grams) + food(u.pick).piece);
+    else if (u.grams.length < 4) u.grams = (u.grams + a).replace(/^0+/, "");
+  },
+  bSave() { if (num(U.B.grams) > 0) { logFood(U.B.pick, num(U.B.grams)); U.B.pick = null; } },
+  bPanel(a) { U.B.panel = a || null; },
+  bHist(a) { U.B.histSel = a; },
+  // C
+  cDay(a) { const n = addDays(U.C.date, +a); if (n <= TODAY) U.C.date = n; },
+  cGo(a) { U.C.date = a; },
+  cMenu() { U.C.menu = !U.C.menu; },
+  cPage(a) { Object.assign(U.C, { page: a || null, menu: false }); },
+  cAddOpen(a) { Object.assign(U.C, { add: a, q: "", open: null }); },
+  cAddClose() { U.C.add = null; },
+  cOpen(a) { const fd = food(+a); if (U.C.open === fd.id) U.C.open = null; else Object.assign(U.C, { open: fd.id, grams: fd.piece || 100 }); },
+  cGrams(a) { U.C.grams = +a; },
+  cAdd(a) {
+    const u = U.C; if (num(u.grams) <= 0) return;
+    const time = u.date === TODAY ? nowHM() : { [MEALS[0]]: "08:00", [MEALS[1]]: "11:00", [MEALS[2]]: "14:00", [MEALS[3]]: "19:00", [MEALS[4]]: "21:00" }[u.add];
+    logFood(+a, num(u.grams), u.date, time, u.add); u.open = null;
+  },
+};
+
+/* ===================== render + wiring ===================== */
+const VARIANTS = { A: ["Klasyczny: zakładki + pierścień", VariantA], B: ["Spiżarnia: kafelki + klawiatura", VariantB], C: ["Dziennik: posiłki + kalendarz", VariantC] };
+const KEYS = Object.keys(VARIANTS);
+let variant = new URLSearchParams(location.search).get("variant");
+if (!VARIANTS[variant]) variant = "A";
+
+function render() {
+  const ae = document.activeElement, fid_ = ae && ae.id;
+  let s0 = null, s1 = null; try { s0 = ae.selectionStart; s1 = ae.selectionEnd; } catch {}
+  const scrolls = [...document.querySelectorAll(".scroll")].map(x => x.scrollTop);
+  document.getElementById("app").innerHTML = VARIANTS[variant][1]();
+  document.getElementById("modal").innerHTML = modalHtml();
+  document.querySelectorAll(".scroll").forEach((x, i) => { if (scrolls[i] != null) x.scrollTop = scrolls[i]; });
+  if (fid_) { const n = document.getElementById(fid_); if (n) { n.focus(); try { n.setSelectionRange(s0, s1); } catch {} } }
+  document.getElementById("sw-label").textContent = `${variant} · ${VARIANTS[variant][0]}`;
+}
+function setBind(path, value) {
+  const parts = path.split("."), root = { S, U }[parts.shift()];
+  const last = parts.pop(); parts.reduce((o, k) => o[k], root)[last] = value;
+}
+function switchVariant(step) {
+  variant = KEYS[(KEYS.indexOf(variant) + step + KEYS.length) % KEYS.length];
+  const url = new URL(location.href); url.searchParams.set("variant", variant); history.replaceState(null, "", url);
+  U.modal = null; render();
+}
+
+document.addEventListener("click", e => {
+  const sw = e.target.closest("[data-sw]");
+  if (sw) return switchVariant(+sw.dataset.sw);
+  const el = e.target.closest("[data-act]");
+  if (!el || el.disabled) return;
+  ACT[el.dataset.act]?.(el.dataset.a, el);
+  render();
+});
+document.addEventListener("input", e => {
+  const el = e.target; if (!el.dataset.bind) return;
+  setBind(el.dataset.bind, el.type === "number" ? (el.value === "" ? "" : Number(el.value)) : el.value);
+  render();
+});
+document.getElementById("import-file").addEventListener("change", async e => {
+  const file = e.target.files[0]; if (!file) return;
+  try {
+    const data = JSON.parse(await file.text());
+    S.goals = data.goals; S.foods = data.foods; S.log = data.log;
+    fid = Math.max(0, ...S.foods.map(f => f.id)) + 1; S.nextId = Math.max(0, ...S.log.map(x => x.id)) + 1;
+    alert(`Wczytano ${S.foods.length} produktów i ${S.log.length} wpisów.`);
+  } catch (err) { alert("Nie udało się wczytać pliku: " + err.message); }
+  e.target.value = ""; render();
+});
+document.addEventListener("keydown", e => {
+  if (e.target.closest("input, textarea, [contenteditable]")) return;
+  if (e.key === "ArrowLeft") switchVariant(-1);
+  if (e.key === "ArrowRight") switchVariant(1);
+});
+render();
+</script>
+</body>
+</html>
