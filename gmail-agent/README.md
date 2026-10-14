@@ -20,6 +20,18 @@ server** for Claude Code. No LLM, database or web UI yet (those are Stages 2–5
 
 Secrets (`credentials.json`, `data/token.json`, `.env`) are gitignored — never commit them.
 
+## Export Presets to Android
+
+Requires Node.js 22.5 or newer (the export opens SQLite with Node's `node:sqlite` `DatabaseSync` in read-only mode).
+
+```bash
+npm run export-presets
+```
+
+The command reads `data/gmail-agent.db` and writes `data/presets-backup.json`, with paths resolved from this `gmail-agent` package. It exports Presets only; Android receives empty slots and no food log entries. You can override paths with `npm run export-presets -- --db <path> --output <path>`. Relative option paths are also resolved from `gmail-agent`. The output is replaced after the complete backup has been validated.
+
+**Manual check by a human after merge:** run `npm --prefix gmail-agent run export-presets`, copy the indicated JSON file to the phone, open **⚙ Ustawienia → Importuj kopię**, and select it. Confirm that the real Presets appear with **★ / Z Ggent** for newly added products, and that names, aliases, and macros are preserved with no new food log entries. Reopen the app and confirm they remain. For name conflicts, confirm the app reports that the existing product was skipped.
+
 ## Use it from the terminal
 
 ```bash
