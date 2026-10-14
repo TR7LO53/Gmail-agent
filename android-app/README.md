@@ -49,6 +49,10 @@ $adb = Join-Path $env:ANDROID_HOME 'platform-tools\adb.exe'
 & $adb install -r $apkPath
 ```
 
+## Ustawienia celów i Slot
+
+Otwórz **⚙ Ustawienia** z ekranu Pantry, aby zmienić dzienne cele kcal, B/W/T oraz lokalne godziny początku obiadu i kolacji. Domyślne wartości to 2000 kcal, 150 g białka, 200 g węglowodanów, 70 g tłuszczu oraz 11:00 i 17:00. Granice Slot zmieniają kolejność kafelków oznaczonych odpowiednim tagiem. Cele są wspólnym źródłem danych dla podsumowania Pantry i logiki przeznaczonej dla historii; ekran historii nie jest częścią tej wersji aplikacji.
+
 ## Ręczna kontrola restartu
 
 **Tę kontrolę wykonuje człowiek na telefonie lub emulatorze po merge; model jej nie wykonywał.**
@@ -59,7 +63,11 @@ $adb = Join-Path $env:ANDROID_HOME 'platform-tools\adb.exe'
 4. Otwórz tę samą aplikację ponownie tego samego lokalnego dnia. Sprawdź, że preset, wpis, makra i podsumowanie są zachowane. Powtórz próbę bez sieci, na przykład w trybie samolotowym.
 5. Edytuj wpis z 100 g na 150 g, sprawdź proporcjonalne makra, wymuś zatrzymanie i otwórz ponownie. Zmiana powinna pozostać. Usuń wpis, ponownie uruchom aplikację i sprawdź, że wpis nie wrócił.
 6. Ponownie wybierz seedy: nie powinny pojawić się duplikaty ani nowe wpisy. Sprawdź również produkcyjny build — nie powinien pokazywać przycisku seedowania.
-7. Sprawdź mały ekran, przewijanie listy, widoczność przycisku zapisu, anulowanie oraz odświeżenie po wznowieniu aplikacji.
+7. W ustawieniach zmień cel np. na 2200 kcal, zmień B/W/T oraz obie godziny i zapisz. Sprawdź wartości nagłówka oraz kolejność Presetów z pasującymi Slot tags.
+8. Wymuś zatrzymanie aplikacji w Androidzie bez odinstalowania jej i bez czyszczenia danych. Otwórz ponownie tę samą aplikację i sprawdź zachowanie wszystkich celów oraz godzin, nagłówka i kolejności kafelków. Powtórz kontrolę offline.
+9. Sprawdź mały ekran, przewijanie, anulowanie formularza oraz odświeżenie po wznowieniu aplikacji i przekroczeniu granicy Slot.
+
+Restart na urządzeniu sprawdza człowiek po merge. Model nie wykonywał tej kontroli.
 
 ## Ograniczenia
 

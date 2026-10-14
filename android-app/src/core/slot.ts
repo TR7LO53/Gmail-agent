@@ -5,8 +5,7 @@ export interface SlotBoundaries {
   dinnerStart?: number;
 }
 
-const DEFAULT_LUNCH_START = 660;
-const DEFAULT_DINNER_START = 1020;
+export const DEFAULT_SLOT_BOUNDARIES: Readonly<Required<SlotBoundaries>> = Object.freeze({ lunchStart: 660, dinnerStart: 1020 });
 
 function validMinute(value: number, name: string): void {
   if (!Number.isInteger(value) || value < 0 || value > 1439) {
@@ -17,8 +16,8 @@ function validMinute(value: number, name: string): void {
 /** Resolve a local clock minute (0–1439) to breakfast, lunch, or dinner. */
 export function slotForMinute(minute: number, boundaries: SlotBoundaries = {}): Slot {
   validMinute(minute, "minute");
-  const lunchStart = boundaries.lunchStart ?? DEFAULT_LUNCH_START;
-  const dinnerStart = boundaries.dinnerStart ?? DEFAULT_DINNER_START;
+  const lunchStart = boundaries.lunchStart ?? DEFAULT_SLOT_BOUNDARIES.lunchStart;
+  const dinnerStart = boundaries.dinnerStart ?? DEFAULT_SLOT_BOUNDARIES.dinnerStart;
   validMinute(lunchStart, "lunchStart");
   validMinute(dinnerStart, "dinnerStart");
   if (lunchStart >= dinnerStart) throw new RangeError("lunchStart must be before dinnerStart.");
