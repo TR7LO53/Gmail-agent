@@ -71,7 +71,25 @@ Restart na urządzeniu sprawdza człowiek po merge. Model nie wykonywał tej kon
 
 ## Ograniczenia
 
-W tym wariancie nie ma formularza produktu, edycji presetów, importu, synchronizacji ani funkcjonalnej bazy SQLite w podglądzie webowym. Zbudowanie APK i kontrola restartu wymagają Android SDK/JDK oraz urządzenia lub emulatora; sam build webowy nie potwierdza natywnego mostka SQLite.
+W tym wariancie nie ma formularza produktu, edycji presetów ani synchronizacji. Import i eksport kopii działają w aplikacji Android; podgląd webowy nie ma funkcjonalnej bazy SQLite. Zbudowanie APK i kontrola restartu wymagają Android SDK/JDK oraz urządzenia lub emulatora; sam build webowy nie potwierdza natywnego mostka SQLite.
+
+## Kopia zapasowa JSON
+
+W ekranie **Ustawienia** można udostępnić plik JSON przez systemowy share sheet lub wskazać plik do importu. Format ma `version: 1` oraz tablice `food_presets` i `food_log`. Presety zawierają `slots` (alias danych dla domenowych `slot_tags`); historia zachowuje zapisane makra i metadane każdego wpisu.
+
+Kopia obejmuje wszystkie Presety i całą historię, ale nie obejmuje `app_settings`, celów ani godzin granic Slot. Plik v1 przyjmuje wpisy z dodatnią ilością w gramach (`unit: "g"`); rekord bez ilości lub w innej jednostce jest odrzucany w całości. To format kopii Pantry, nie dowolny zrzut bazy desktopowej.
+
+Przy identycznej nazwie produktu pozostaje lokalny Preset, a produkt z kopii jest liczony jako pominięty. Historia nadal jest dopisywana, a jej `preset_id` wskazuje zachowany produkt. Nowe produkty importowane mają oznaczenie „Z Ggent” i gwiazdkę ★. Ponowny import pliku ponownie dopisuje wszystkie jego wpisy historii; import nie próbuje ich zgadywać ani usuwać jako duplikatów. Eksport wymaga wybrania miejsca lub aplikacji w share sheet. Aplikacja nie żąda uprawnień do publicznej pamięci; plik w cache aplikacji nie przetrwa jej odinstalowania.
+
+### Kontrola odtworzenia na telefonie
+
+**Po merge wykonuje ją człowiek; model jej nie wykonywał.**
+
+1. Dodaj kilka produktów z aliasami i tagami Slot oraz wpisy, w tym z wcześniejszego dnia. Zanotuj produkty, makra i sumy.
+2. W **Ustawienia → Eksportuj kopię** wybierz miejsce poza prywatnym cache aplikacji. Sprawdź, że share sheet udostępnił plik `.json` i że nie pojawiła się prośba o uprawnienia pamięci.
+3. Odinstaluj i zainstaluj tę samą wersję aplikacji. Upewnij się, że baza jest pusta — Android może przywrócić dane automatycznie.
+4. W **Ustawienia → Importuj kopię** wybierz zapisany plik. Sprawdź produkty z gwiazdką, aliasy, tagi, wagę sztuki, wpisy, makra i sumy; uruchom aplikację ponownie i sprawdź dane offline. Cele i godziny wracają do wartości domyślnych, bo nie należą do kopii.
+5. Sprawdź konflikt nazwy, ponowny import oraz plik uszkodzony i z nieznaną wersją. Błąd ma być po polsku, a nieudany import nie może zmienić danych.
 # Historia z ostatnich 7 dni
 
 Przycisk **Historia** w Pantry otwiera wykres kcal dla siedmiu lokalnych dni, w tym dzisiaj. Przerywana linia pokazuje aktualny cel kcal. Dotknij dowolnej daty, także pustej, aby zobaczyć jej zapisane wpisy w trybie tylko do odczytu. Zakres przesuwa się przy odświeżeniu po wznowieniu aplikacji lub przez minutowy timer; wpisy opierają się na zapisanych makrach, nawet jeśli preset później się zmieni.

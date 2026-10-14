@@ -12,6 +12,8 @@
   import { PantryState } from './lib/pantry-state'
   import HistoryScreen from './components/HistoryScreen.svelte'
   import { entriesForLocalDate } from './lib/history'
+  import { parseFoodBackup, serializeFoodBackup } from './core/backup'
+  import { readBackupFile, shareBackupFile } from './lib/backup-files'
 
   let state: PantryState | undefined
   let loading = true
@@ -25,6 +27,8 @@
   let gramsText = ''
   let saving = false
   let deleting = 0
+  let backupBusy = false
+  let backupStatus = ''
   let devBuild = import.meta.env.MODE === 'development'
   let settingsDraft = { kcal: '', protein_g: '', carbs_g: '', fat_g: '', lunchStart: '11:00', dinnerStart: '17:00' }
   $: grams = parseGrams(gramsText)
@@ -119,6 +123,31 @@
     finally { saving = false }
   }
   function cancelSettings() { error = ''; screen = 'pantry' }
+  async function exportBackup() {
+    if (!state || backupBusy) return
+    backupBusy = true; error = ''; backupStatus = ''
+    try {
+      const backup = await state.exportBackup()
+      await shareBackupFile(serializeFoodBackup(backup))
+      backupStatus = 'Plik kopii został przygotowany do udostępnienia.'
+    } catch (cause) { error = cause instanceof Error ? cause.message : 'Nie udało się przygotować kopii.' }
+    finally { backupBusy = false }
+  }
+  async function importBackupFile(event: Event) {
+    const input = event.currentTarget as HTMLInputElement
+    const file = input.files?.[0]
+    input.value = ''
+    if (!file || !state || backupBusy) return
+    backupBusy = true; error = ''; backupStatus = ''
+    try {
+      const backup = parseFoodBackup(await readBackupFile(file))
+      const result = await state.importBackup(backup)
+      backupStatus = `Dodano produktów: ${result.addedPresets}; pominięto: ${result.skippedPresets}; dodano wpisów historii: ${result.addedEntries}. Ponowny import dopisuje historię ponownie.`
+      try { await state.refresh(); state = state }
+      catch { error = 'Dane zaimportowano, ale nie udało się odświeżyć widoku.' }
+    } catch (cause) { error = cause instanceof Error ? cause.message : 'Nie udało się zaimportować kopii.' }
+    finally { backupBusy = false }
+  }
   function openHistory() { if (!state) return; selectedDate = dateKey(state.now); screen = 'history' }
   async function refreshData() {
     if (!state) return
@@ -171,6 +200,16 @@
       </fieldset>
       <button class="primary settings-save" type="submit" disabled={saving}>{saving ? 'Zapisywanie…' : 'Zapisz'}</button>
     </form>
+    <section class="backup-section" aria-labelledby="backup-title">
+      <h2 id="backup-title">Kopia zapasowa</h2>
+      <p>Kopia obejmuje produkty i całą historię. Ustawienia celów i godzin nie są kopiowane.</p>
+      <button class="small-button" type="button" disabled={backupBusy} onclick={exportBackup}>{backupBusy ? 'Przygotowywanie…' : 'Eksportuj kopię'}</button>
+      <label class="small-button backup-pick">Importuj kopię
+        <input type="file" accept=".json,application/json" onchange={importBackupFile} disabled={backupBusy} />
+      </label>
+      {#if backupStatus}<p class="backup-status" role="status">{backupStatus}</p>{/if}
+      <p class="backup-note">Import dopisuje historię. Ponowny import tego samego pliku doda te wpisy ponownie.</p>
+    </section>
   </main>
 {:else if screen === 'history'}
   <HistoryScreen days={state?.historyTotals ?? []} entries={historyEntries} bind:selectedDate goal={goals.kcal} error={state?.error ?? ''} onBack={() => screen = 'pantry'} onSelect={(date) => selectedDate = date} onRetry={refreshData} />
@@ -186,7 +225,7 @@
       {#if error}<p class="alert" role="alert">{error}</p><button class="small-button" onclick={refreshData}>Odśwież</button>
       {:else if !state?.presets.length}<p class="empty">Brak produktów. Dodaj je później w formularzu.</p>
       {:else if !ordered.length}<p class="empty">Brak produktów pasujących do wyszukiwania.</p>{/if}
-      <div class="tile-grid">{#each ordered as preset (preset.id)}<button class="tile" onclick={() => openPreset(preset)}><strong>{preset.name}</strong><span>{preset.kcal} kcal / 100 g</span></button>{/each}<button class="tile new-tile" onclick={() => {}}><strong>＋ Nowy produkt</strong><span>Wkrótce</span></button></div>
+      <div class="tile-grid">{#each ordered as preset (preset.id)}<button class="tile" onclick={() => openPreset(preset)}><strong>{preset.name}{#if preset.from_ggent}<span class="origin-star" aria-label="Z Ggent" title="Z Ggent"> ★</span>{/if}</strong><span>{preset.kcal} kcal / 100 g</span></button>{/each}<button class="tile new-tile" onclick={() => {}}><strong>＋ Nowy produkt</strong><span>Wkrótce</span></button></div>
       {#if devBuild}<button class="seed-button" onclick={seed}>Wczytaj produkty testowe</button>{#if dbStatus}<p class="seed-status">{dbStatus}</p>{/if}{/if}
     </section>
   </main>

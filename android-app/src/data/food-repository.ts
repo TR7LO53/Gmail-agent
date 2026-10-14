@@ -1,9 +1,10 @@
 import { createFoodLogSnapshot, rescaleFoodLogEntry } from "../core/macros";
 import type { FoodLogEntry, Preset, Slot } from "../core/types";
 import type { SqlConnection } from "./schema";
+import { buildFoodBackup, parseFoodBackup, type FoodBackup } from "../core/backup";
 
-export interface StoredPreset extends Preset { id: number; usage_count: number }
-export interface StoredEntry extends FoodLogEntry { id: number; preset_id: number; source: string; provenance: string }
+export interface StoredPreset extends Preset { id: number; usage_count: number; from_ggent: boolean }
+export interface StoredEntry extends FoodLogEntry { id: number; preset_id: number | null; source: string; provenance: string | null; raw_input: string | null; query_en: string | null; original: string | null }
 const macros = ["kcal", "protein_g", "carbs_g", "fat_g"] as const;
 
 function finite(value: unknown, field: string): number {
@@ -30,16 +31,52 @@ export class FoodRepository {
       if (!Number.isInteger(Number(r.id)) || typeof r.name !== "string") throw new Error("Nieprawidłowy zapis produktu");
       const aliases = parseArray(r.aliases, "aliases", (x): x is string => typeof x === "string");
       const slots = parseArray(r.slots, "slots", validSlot);
-      const preset: StoredPreset = { id: Number(r.id), name: r.name, aliases, slot_tags: slots, usage_count: finite(r.usage_count, "usage_count"), kcal: finite(r.kcal, "kcal"), protein_g: finite(r.protein_g, "protein_g"), carbs_g: finite(r.carbs_g, "carbs_g"), fat_g: finite(r.fat_g, "fat_g") };
+      const preset: StoredPreset = { id: Number(r.id), name: r.name, aliases, slot_tags: slots, usage_count: finite(r.usage_count, "usage_count"), kcal: finite(r.kcal, "kcal"), protein_g: finite(r.protein_g, "protein_g"), carbs_g: finite(r.carbs_g, "carbs_g"), fat_g: finite(r.fat_g, "fat_g"), from_ggent: Number(r.from_ggent) === 1 };
       if (r.piece_weight_g != null) { preset.piece_weight_g = Number(r.piece_weight_g); if (!Number.isFinite(preset.piece_weight_g) || preset.piece_weight_g <= 0) throw new Error("Nieprawidłowa waga sztuki"); }
       return preset;
     });
   }
 
   async insertPreset(preset: Omit<Preset, "id" | "usage_count">): Promise<number> {
-    const result = await this.db.run("INSERT INTO food_presets(name,aliases,kcal,protein_g,carbs_g,fat_g,piece_weight_g,slots) VALUES(?,?,?,?,?,?,?,?)", [preset.name, JSON.stringify(preset.aliases ?? []), ...macros.map((key) => preset[key]), preset.piece_weight_g ?? null, JSON.stringify(preset.slot_tags ?? [])]);
-    if (!result.lastId) throw new Error("Nie udało się zapisać produktu");
-    return result.lastId;
+    return this.serialize(async () => {
+      const result = await this.db.run("INSERT INTO food_presets(name,aliases,kcal,protein_g,carbs_g,fat_g,piece_weight_g,slots,from_ggent) VALUES(?,?,?,?,?,?,?,?,0)", [preset.name, JSON.stringify(preset.aliases ?? []), ...macros.map((key) => preset[key]), preset.piece_weight_g ?? null, JSON.stringify(preset.slot_tags ?? [])]);
+      if (!result.lastId) throw new Error("Nie udało się zapisać produktu");
+      return result.lastId;
+    });
+  }
+
+  async exportBackup(): Promise<FoodBackup> {
+    return this.db.transaction(async (tx) => {
+      const presets = await tx.query<any>("SELECT * FROM food_presets ORDER BY id ASC");
+      const entries = await tx.query<any>("SELECT * FROM food_log ORDER BY ts ASC, id ASC");
+      return buildFoodBackup(
+        presets.map((r) => ({ id: Number(r.id), name: r.name, aliases: parseArray(r.aliases, "aliases", (v): v is string => typeof v === "string"), kcal: finite(r.kcal, "kcal"), protein_g: finite(r.protein_g, "protein_g"), carbs_g: finite(r.carbs_g, "carbs_g"), fat_g: finite(r.fat_g, "fat_g"), slots: parseArray(r.slots, "slots", validSlot), piece_weight_g: r.piece_weight_g == null ? null : Number(r.piece_weight_g) })),
+        entries.map((r) => ({ id: Number(r.id), ts: r.ts, source: r.source, raw_input: r.raw_input ?? null, query_en: r.query_en ?? null, original: r.original ?? null, name: r.name, qty: Number(r.qty), unit: r.unit, kcal: Number(r.kcal), protein_g: Number(r.protein_g), carbs_g: Number(r.carbs_g), fat_g: Number(r.fat_g), provenance: r.provenance ?? null, preset_id: r.preset_id == null ? null : Number(r.preset_id) })),
+      );
+    });
+  }
+
+  importBackup(backup: FoodBackup): Promise<{ addedPresets: number; skippedPresets: number; addedEntries: number }> {
+    const validated = parseFoodBackup(JSON.stringify(backup));
+    return this.serialize(() => this.db.transaction(async (tx) => {
+      const presetIds = new Map<number, number>();
+      let addedPresets = 0, skippedPresets = 0;
+      for (const preset of validated.food_presets) {
+        const existing = (await tx.query<{ id: number }>("SELECT id FROM food_presets WHERE name = ?", [preset.name]))[0];
+        if (existing) { presetIds.set(preset.id, Number(existing.id)); skippedPresets++; continue; }
+        const result = await tx.run("INSERT INTO food_presets(name,aliases,kcal,protein_g,carbs_g,fat_g,piece_weight_g,slots,from_ggent) VALUES(?,?,?,?,?,?,?,?,1)", [preset.name, JSON.stringify(preset.aliases), preset.kcal, preset.protein_g, preset.carbs_g, preset.fat_g, preset.piece_weight_g, JSON.stringify(preset.slots)]);
+        if (!result.lastId) throw new Error("Nie udało się zapisać produktu z kopii.");
+        presetIds.set(preset.id, result.lastId); addedPresets++;
+      }
+      let addedEntries = 0;
+      for (const entry of validated.food_log) {
+        const presetId = entry.preset_id === null ? null : presetIds.get(entry.preset_id);
+        if (entry.preset_id !== null && presetId === undefined) throw new Error("Nieprawidłowe odwołanie produktu w kopii.");
+        await tx.run("INSERT INTO food_log(ts,source,raw_input,query_en,original,name,qty,unit,kcal,protein_g,carbs_g,fat_g,provenance,preset_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)", [entry.ts, entry.source, entry.raw_input, entry.query_en, entry.original, entry.name, entry.qty, entry.unit, entry.kcal, entry.protein_g, entry.carbs_g, entry.fat_g, entry.provenance, presetId ?? null]);
+        addedEntries++;
+      }
+      return { addedPresets, skippedPresets, addedEntries };
+    }));
   }
 
   async listEntries(startIso: string, endIso: string): Promise<StoredEntry[]> {

@@ -3,6 +3,7 @@ import { copySettings, DEFAULT_SETTINGS, validateSettings, type AppSettings } fr
 import { lastSevenDaysTotals, sumMacrosInRange } from "../core/totals";
 import type { DayTotals, Macros, Slot } from "../core/types";
 import type { FoodRepository, StoredEntry, StoredPreset } from "../data/food-repository";
+import type { FoodBackup } from "../core/backup";
 import type { SettingsRepository } from "../data/settings-repository";
 import { lastSevenDaysWindow, localDayWindow } from "./history";
 
@@ -82,4 +83,8 @@ export class PantryState {
   async add(id: number, grams: number): Promise<void> { await this.repository.add(id, grams); await this.refresh(); }
   async update(id: number, grams: number): Promise<void> { await this.repository.updateWeight(id, grams); await this.refresh(); }
   async remove(id: number): Promise<void> { await this.repository.delete(id); await this.refresh(); }
+  async exportBackup(): Promise<FoodBackup> { return this.repository.exportBackup(); }
+  async importBackup(backup: FoodBackup): Promise<{ addedPresets: number; skippedPresets: number; addedEntries: number }> {
+    return this.repository.importBackup(backup);
+  }
 }

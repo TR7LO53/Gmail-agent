@@ -8,7 +8,8 @@ export const SCHEMA_SQL = [
     aliases TEXT NOT NULL DEFAULT '[]',
     kcal REAL NOT NULL, protein_g REAL NOT NULL, carbs_g REAL NOT NULL, fat_g REAL NOT NULL,
     piece_weight_g REAL NULL,
-    slots TEXT NOT NULL DEFAULT '[]'
+    slots TEXT NOT NULL DEFAULT '[]',
+    from_ggent INTEGER NOT NULL DEFAULT 0 CHECK (from_ggent IN (0,1))
   )`,
   `CREATE TABLE IF NOT EXISTS food_log (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -34,10 +35,15 @@ export const SCHEMA_SQL = [
 export interface SqlConnection {
   query<T extends Record<string, unknown> = Record<string, unknown>>(statement: string, values?: unknown[]): Promise<T[]>;
   run(statement: string, values?: unknown[]): Promise<{ changes: number; lastId?: number }>;
+  transaction<T>(action: (connection: SqlConnection) => Promise<T>): Promise<T>;
   close(): Promise<void>;
 }
 
 export async function prepareSchema(db: SqlConnection): Promise<void> {
   for (const statement of SCHEMA_SQL) await db.run(statement);
+  const columns = await db.query<{ name: string }>("PRAGMA table_info(food_presets)");
+  if (!columns.some((column) => column.name === "from_ggent")) {
+    await db.run("ALTER TABLE food_presets ADD COLUMN from_ggent INTEGER NOT NULL DEFAULT 0 CHECK (from_ggent IN (0,1))");
+  }
   await db.run("INSERT OR IGNORE INTO app_settings(id,goal_kcal,goal_protein_g,goal_carbs_g,goal_fat_g,lunch_start,dinner_start) VALUES(1,2000,150,200,70,660,1020)");
 }
