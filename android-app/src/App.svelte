@@ -10,12 +10,15 @@
   import { openFoodDatabase } from './data/sqlite'
   import { backspace, appendDecimal, appendDigit, parseGrams } from './lib/grams-input'
   import { PantryState } from './lib/pantry-state'
+  import HistoryScreen from './components/HistoryScreen.svelte'
+  import { entriesForLocalDate } from './lib/history'
 
   let state: PantryState | undefined
   let loading = true
   let error = ''
   let dbStatus = ''
-  let screen: 'pantry' | 'pad' | 'entries' | 'settings' = 'pantry'
+  let screen: 'pantry' | 'pad' | 'entries' | 'settings' | 'history' = 'pantry'
+  let selectedDate = ''
   let search = ''
   let chosen: StoredPreset | undefined
   let editing: StoredEntry | undefined
@@ -29,6 +32,13 @@
   $: ordered = state ? orderPresetTiles(state.presets, state.slot, search) : []
   $: goals = state?.goals ?? { kcal: 2000, protein_g: 150, carbs_g: 200, fat_g: 70 }
   $: remaining = goals.kcal - (state?.totals.kcal ?? 0)
+  $: historyEntries = state && selectedDate ? entriesForLocalDate(state.weekEntries, selectedDate) : []
+  $: if (state && screen === 'history' && selectedDate && !state.historyTotals.some((day) => day.date === selectedDate)) selectedDate = dateKey(state.now)
+
+  function dateKey(date: Date) { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}` }
+  function reconcileHistoryDate() {
+    if (state && !state.historyTotals.some((day) => day.date === selectedDate)) selectedDate = dateKey(state.now)
+  }
 
   async function start() {
     loading = true; error = ''
@@ -38,6 +48,7 @@
       await nextState.loadSettings()
       await nextState.refresh()
       state = nextState
+      selectedDate = dateKey(nextState.now)
     } catch (cause) { error = cause instanceof Error ? cause.message : 'Nie udało się uruchomić bazy danych.' }
     finally { loading = false }
   }
@@ -108,9 +119,10 @@
     finally { saving = false }
   }
   function cancelSettings() { error = ''; screen = 'pantry' }
+  function openHistory() { if (!state) return; selectedDate = dateKey(state.now); screen = 'history' }
   async function refreshData() {
     if (!state) return
-    try { await state.refresh(); state = state }
+    try { await state.refresh(); state = state; reconcileHistoryDate() }
     catch { error = state.error || 'Błąd odświeżania.' }
   }
 </script>
@@ -160,9 +172,11 @@
       <button class="primary settings-save" type="submit" disabled={saving}>{saving ? 'Zapisywanie…' : 'Zapisz'}</button>
     </form>
   </main>
+{:else if screen === 'history'}
+  <HistoryScreen days={state?.historyTotals ?? []} entries={historyEntries} bind:selectedDate goal={goals.kcal} error={state?.error ?? ''} onBack={() => screen = 'pantry'} onSelect={(date) => selectedDate = date} onRetry={refreshData} />
 {:else}
   <main class="app-screen">
-    <nav class="pantry-nav"><button class="small-button" onclick={openSettings} aria-label="Ustawienia">⚙ Ustawienia</button></nav>
+    <nav class="pantry-nav"><button class="small-button" onclick={openHistory}>Historia</button><button class="small-button" onclick={openSettings} aria-label="Ustawienia">⚙ Ustawienia</button></nav>
     <button class="summary" onclick={() => screen = 'entries'} aria-label="Otwórz dzisiejsze wpisy">
       <div class="summary-top"><span>{remaining >= 0 ? 'Zostało na dziś' : 'Ponad cel o'}</span><strong>{Math.abs(remaining)} kcal</strong></div>
       <div class="progress"><i style={`width:${Math.min(100, state ? state.totals.kcal / goals.kcal * 100 : 0)}%`}></i></div>

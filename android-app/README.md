@@ -72,3 +72,8 @@ Restart na urządzeniu sprawdza człowiek po merge. Model nie wykonywał tej kon
 ## Ograniczenia
 
 W tym wariancie nie ma formularza produktu, edycji presetów, importu, synchronizacji ani funkcjonalnej bazy SQLite w podglądzie webowym. Zbudowanie APK i kontrola restartu wymagają Android SDK/JDK oraz urządzenia lub emulatora; sam build webowy nie potwierdza natywnego mostka SQLite.
+# Historia z ostatnich 7 dni
+
+Przycisk **Historia** w Pantry otwiera wykres kcal dla siedmiu lokalnych dni, w tym dzisiaj. Przerywana linia pokazuje aktualny cel kcal. Dotknij dowolnej daty, także pustej, aby zobaczyć jej zapisane wpisy w trybie tylko do odczytu. Zakres przesuwa się przy odświeżeniu po wznowieniu aplikacji lub przez minutowy timer; wpisy opierają się na zapisanych makrach, nawet jeśli preset później się zmieni.
+
+Kontrolę historii wykonaj na Androidzie: sprawdź 7 dat i linię celu, wybierz dzień pusty oraz dzień z wpisami (w tym dzisiejszy), a następnie dodaj, edytuj i usuń dzisiejszy wpis w Pantry i wróć do historii. Zwykły podgląd webowy nie ma natywnej bazy SQLite. Testy komponentu sprawdzają liczbę dni, wybór pustej daty i listę bez akcji edycji.
