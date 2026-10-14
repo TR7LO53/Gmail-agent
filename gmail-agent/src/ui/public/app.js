@@ -293,16 +293,25 @@ function renderFoodLog(entries) {
 
 async function refreshFoodLog() {
   try {
-    const { entries } = await getJson("/api/food");
+    const { entries, totals, goals } = await getJson("/api/food");
     renderFoodLog(entries);
+    renderFoodStatsPanel("todaySummary", totals, goals);
   } catch (err) {
     console.error(err);
   }
 }
 
-function renderFoodStatsPanel(elId, totals) {
-  $(elId).innerHTML = `<div class="kcal-big">${Math.round(totals.kcal)} <span class="goal">kcal</span></div>
-    <div class="food-macros">${round1(totals.protein_g)} g P · ${round1(totals.carbs_g)} g C · ${round1(totals.fat_g)} g F</div>`;
+function renderFoodStatsPanel(elId, totals, goals) {
+  const goal = goals ? ` / ${goals.kcal} kcal` : " kcal";
+  const of = (key) => (goals ? ` / ${goals[key]}` : "");
+  $(elId).innerHTML = `<div class="stat-row">
+    <div class="kcal-big">${Math.round(totals.kcal)} <span class="goal">${goal}</span></div>
+    <div class="stat-macros">
+      <span>${round1(totals.protein_g)}<small>${of("protein_g")} g P</small></span>
+      <span>${round1(totals.carbs_g)}<small>${of("carbs_g")} g C</small></span>
+      <span>${round1(totals.fat_g)}<small>${of("fat_g")} g F</small></span>
+    </div>
+  </div>`;
 }
 
 async function refreshFoodStats() {
