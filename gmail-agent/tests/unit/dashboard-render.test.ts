@@ -18,6 +18,7 @@ const APP_JS_PATH = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "
 function loadApp(): Record<string, any> {
   document.body.innerHTML = `
     <div id="food"></div>
+    <button id="toggleFoods"></button>
     <div id="parcels"></div>
     <div id="summary"></div>
     <div id="decisions"></div>
@@ -69,7 +70,7 @@ describe("Activity section", () => {
     const app = loadApp();
     app.renderLogs({ logs: [{ ts: "2026-10-14T10:00:00Z", level: "info", source: "heartbeat", message: "tick" }] });
     expect((document.getElementById("logs") as HTMLElement).hidden).toBe(true);
-    expect(document.getElementById("toggleActivity")!.textContent).toBe("Show");
+    expect(document.getElementById("toggleActivity")!.getAttribute("aria-expanded")).toBe("false");
   });
 });
 
@@ -78,7 +79,7 @@ describe("Decision history section", () => {
     const app = loadApp();
     app.renderDecisions({ decisions: [{ action_taken: "track", agent_reasoning: "x", timestamp: "2026-10-14T10:00:00Z" }] });
     expect((document.getElementById("decisions") as HTMLElement).hidden).toBe(true);
-    expect(document.getElementById("toggleDecisions")!.textContent).toBe("Show");
+    expect(document.getElementById("toggleDecisions")!.getAttribute("aria-expanded")).toBe("false");
   });
 });
 
@@ -122,7 +123,7 @@ describe("renderNutrition provenance tag", () => {
     expect(html).not.toContain("Lookup");
   });
 
-  it("keeps the kcal total meter correct for a mix of preset- and lookup-sourced entries", () => {
+  it("lists each entry's kcal for a mix of preset- and lookup-sourced entries, without a total meter", () => {
     app.renderNutrition({
       entries: [
         { original: "jajko", name: "egg", qty: 100, kcal: 150, protein_g: 12, carbs_g: 1, fat_g: 10, provenance: "preset" },
@@ -131,6 +132,9 @@ describe("renderNutrition provenance tag", () => {
       totals: { kcal: 230, protein_g: 15, carbs_g: 16, fat_g: 11 },
       goals: { kcal: 2000, protein_g: 150, carbs_g: 200, fat_g: 70 },
     });
-    expect(document.getElementById("food")!.innerHTML).toContain("230");
+    const html = document.getElementById("food")!.innerHTML;
+    expect(html).toContain("150 kcal");
+    expect(html).toContain("80 kcal");
+    expect(html).not.toContain("meter");
   });
 });
