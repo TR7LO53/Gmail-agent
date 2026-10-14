@@ -1,16 +1,16 @@
-# Ggent — jedzenie (Android)
+# Ggent — Pantry na Androida
 
-Minimalny szkielet aplikacji mobilnej: Svelte, Vite, TypeScript i Capacitor. Plugin SQLite jest zarejestrowany w projekcie Androida; aplikacja nie otwiera jeszcze bazy.
+Pantry zapisuje presety i wpisy jedzenia w trwałej bazie SQLite na Androidzie. Wpis przechowuje własny snapshot makr, więc późniejsza zmiana presetu nie zmienia historii. Ekran zawiera wyszukiwanie i kafelki produktów, klawiaturę gramów oraz listę dzisiejszych wpisów z edycją i usuwaniem. Kafelek „＋ Nowy produkt” jest na razie pustym stubem.
 
 ## Wymagania
 
-- Node.js 22 lub nowszy (zainstalowany Capacitor CLI wymaga Node 22 lub nowszego).
-- Android Studio z Android SDK wymaganym przez wygenerowany projekt.
-- JDK 21. W Android Studio wybierz JDK dołączony do instalacji (Android Studio > Settings > Build, Execution, Deployment > Build Tools > Gradle > Gradle JDK).
+- Node.js 22 lub nowszy.
+- Android Studio z wymaganym Android SDK.
+- JDK 21 do budowania APK.
 
-## Test i build webowy
+## Testy i build
 
-Z katalogu repozytorium uruchom PowerShell i ustaw ścieżki do checkoutu:
+Z katalogu repozytorium uruchom PowerShell i ustaw ścieżki:
 
 ```powershell
 $repoRoot = 'C:\ścieżka\do\checkoutu'
@@ -18,11 +18,15 @@ $appRoot = Join-Path $repoRoot 'android-app'
 $androidRoot = Join-Path $appRoot 'android'
 npm --prefix "$appRoot" ci
 npm --prefix "$appRoot" run test
+npm --prefix "$appRoot" run check
 npm --prefix "$appRoot" run build
+npm --prefix "$appRoot" run build:dev
 npm --prefix "$appRoot" run cap:sync
 ```
 
-`build` sprawdza typy i komponenty Svelte, a następnie tworzy `dist/`. `cap:sync` kopiuje aktualne zasoby do Androida i rejestruje pluginy natywne.
+`build` sprawdza Svelte i TypeScript, a potem tworzy produkcyjne `dist/`. `build:dev` wykonuje te same kontrole, a następnie tworzy developerskie zasoby z przyciskiem „Wczytaj produkty testowe”. Przycisk dopisuje wyłącznie brakujące, jawnie fikcyjne presety; nie seeduje wpisów jedzenia ani nie nadpisuje istniejących produktów. W produkcyjnym buildzie seeder nie jest dostępny. `cap:sync` kopiuje aktualny `dist/` do Androida, dlatego przed kontrolą na urządzeniu uruchom najpierw `build:dev`, a potem `cap:sync`.
+
+Podgląd w zwykłej przeglądarce pokazuje informację, że trwała baza wymaga Androida. Nie ma pamięciowego ani localStorage fallbacku.
 
 ## Debug APK
 
@@ -37,7 +41,7 @@ $apkPath = Join-Path $androidRoot 'app\build\outputs\apk\debug\app-debug.apk'
 Test-Path -LiteralPath $apkPath
 ```
 
-Android Studio może też otworzyć katalog `android/` bezpośrednio. Przy instalacji przez USB włącz na telefonie GrapheneOS **Developer options → USB debugging**, podłącz kabel obsługujący dane i zaakceptuj klucz komputera. Następnie:
+Android Studio może też otworzyć katalog `android/` bezpośrednio. Przy instalacji przez USB włącz w telefonie GrapheneOS **Developer options → USB debugging**, podłącz kabel obsługujący dane i zaakceptuj klucz komputera. Następnie:
 
 ```powershell
 $adb = Join-Path $env:ANDROID_HOME 'platform-tools\adb.exe'
@@ -45,8 +49,18 @@ $adb = Join-Path $env:ANDROID_HOME 'platform-tools\adb.exe'
 & $adb install -r $apkPath
 ```
 
-Możesz też skopiować APK na telefon i zezwolić aplikacji otwierającej plik na instalowanie nieznanych aplikacji. Po instalacji wyłącz USB debugging, jeśli nie jest już potrzebny.
+## Ręczna kontrola restartu
 
-## Ograniczenia tej wersji
+**Tę kontrolę wykonuje człowiek na telefonie lub emulatorze po merge; model jej nie wykonywał.**
 
-Ekran jest placeholderem. Nie zawiera jeszcze schematu bazy, migracji, zapisu jedzenia, Pantry, importu ani synchronizacji. Próba `gradlew.bat -p .\android assembleDebug` zakończyła się przed kompilacją komunikatem `JAVA_HOME is set to an invalid directory`, ponieważ wskazany JDK `C:\Program Files\Android\Android Studio\jbr` nie istnieje w tym środowisku. Android SDK nie był dostępny do odczytu. APK nie powstał; ustaw działający JDK 21 i ścieżkę SDK przed budowaniem.
+1. Uruchom developerski build i synchronizację zasobów (`npm run build:dev`, potem `npm run cap:sync`), zbuduj i zainstaluj debug APK. Zachowaj to samo `applicationId` między uruchomieniami.
+2. W Pantry wybierz „Wczytaj produkty testowe”. Otwórz produkt, dodaj 100 g i zatwierdź. Zanotuj nazwę, wagę i kcal; dotknij nagłówka i potwierdź wpis na liście „Dziś zjedzone”.
+3. W ustawieniach Androida wymuś zatrzymanie aplikacji. Nie odinstalowuj jej i nie czyść danych.
+4. Otwórz tę samą aplikację ponownie tego samego lokalnego dnia. Sprawdź, że preset, wpis, makra i podsumowanie są zachowane. Powtórz próbę bez sieci, na przykład w trybie samolotowym.
+5. Edytuj wpis z 100 g na 150 g, sprawdź proporcjonalne makra, wymuś zatrzymanie i otwórz ponownie. Zmiana powinna pozostać. Usuń wpis, ponownie uruchom aplikację i sprawdź, że wpis nie wrócił.
+6. Ponownie wybierz seedy: nie powinny pojawić się duplikaty ani nowe wpisy. Sprawdź również produkcyjny build — nie powinien pokazywać przycisku seedowania.
+7. Sprawdź mały ekran, przewijanie listy, widoczność przycisku zapisu, anulowanie oraz odświeżenie po wznowieniu aplikacji.
+
+## Ograniczenia
+
+W tym wariancie nie ma formularza produktu, edycji presetów, importu, synchronizacji ani funkcjonalnej bazy SQLite w podglądzie webowym. Zbudowanie APK i kontrola restartu wymagają Android SDK/JDK oraz urządzenia lub emulatora; sam build webowy nie potwierdza natywnego mostka SQLite.

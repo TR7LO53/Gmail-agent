@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite --configLoader runner",
     "build": "npm run check && vite build --configLoader runner",
+    "build:dev": "npm run check && vite build --configLoader runner --mode development",
     "check": "svelte-check --workspace . --config ./svelte.config.js --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json",
     "test": "vitest run --configLoader runner",
     "preview": "vite preview",
