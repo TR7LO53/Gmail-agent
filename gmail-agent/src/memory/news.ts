@@ -96,9 +96,9 @@ function normalizePattern(pattern: string): string {
   return normalized;
 }
 
-export function addNewsSender(db: DB, pattern: string, displayName?: string): NewsSender {
+export function addNewsSender(db: DB, pattern: string, displayName?: string, addedAt?: string): NewsSender {
   const normalized = normalizePattern(pattern);
-  const now = new Date().toISOString();
+  const now = addedAt === undefined ? new Date().toISOString() : new Date(addedAt).toISOString();
   db.prepare(
     `INSERT INTO news_senders (pattern, display_name, added_at, removed_at)
      VALUES (?, ?, ?, NULL)
@@ -113,6 +113,48 @@ export function addNewsSender(db: DB, pattern: string, displayName?: string): Ne
       unknown
     >,
   );
+}
+
+/** Add the exact sender from a locally stored email, or return its active exact/domain match. */
+export function addNewsSenderFromEmail(
+  db: DB,
+  email: { sender?: string; received_at?: string },
+): { sender: NewsSender; created: boolean } {
+  const parsed = parseFromHeader(email.sender ?? "");
+  if (!parsed.address) throw new Error("Email has no valid From address.");
+  db.exec("BEGIN IMMEDIATE");
+  try {
+    const matched = matchSender(email.sender ?? "", listNewsSenders(db));
+    if (matched) {
+      db.exec("COMMIT");
+      return { sender: matched, created: false };
+    }
+    if (!email.received_at || !Number.isFinite(Date.parse(email.received_at))) {
+      throw new Error("Email has no valid received_at timestamp.");
+    }
+    const cutoff = new Date(Date.parse(email.received_at) - 1).toISOString();
+    const existing = db.prepare("SELECT * FROM news_senders WHERE pattern = ?").get(parsed.address) as
+      | Record<string, unknown>
+      | undefined;
+    if (existing) {
+      const previousAddedAt = Date.parse(existing.added_at as string);
+      const addedAt = Number.isFinite(previousAddedAt) && previousAddedAt < Date.parse(cutoff)
+        ? new Date(previousAddedAt).toISOString()
+        : cutoff;
+      const existingId = existing.id as number;
+      db.prepare("UPDATE news_senders SET display_name = ?, added_at = ?, removed_at = NULL WHERE id = ?")
+        .run(parsed.name ?? null, addedAt, existingId);
+      const sender = rowToSender(db.prepare("SELECT * FROM news_senders WHERE id = ?").get(existingId) as Record<string, unknown>);
+      db.exec("COMMIT");
+      return { sender, created: true };
+    }
+    const sender = addNewsSender(db, parsed.address, parsed.name, cutoff);
+    db.exec("COMMIT");
+    return { sender, created: true };
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
 }
 
 /** Rename an existing sender. Passing undefined clears its display name. */

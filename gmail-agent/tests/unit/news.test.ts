@@ -165,7 +165,7 @@ describe("AI News storage", () => {
 
 describe("AI News database initialization", () => {
   it("upgrades an older database and preserves seeded or edited interest values", () => {
-    const tempRoot = path.resolve("..", ".dyrygent-robocze");
+    const tempRoot = path.resolve(".dyrygent-robocze");
     mkdirSync(tempRoot, { recursive: true });
     const dir = mkdtempSync(path.join(tempRoot, "news-db-"));
     const file = path.join(dir, "db.sqlite");
