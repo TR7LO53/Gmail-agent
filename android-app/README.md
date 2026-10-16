@@ -32,10 +32,12 @@ Podgląd w zwykłej przeglądarce pokazuje informację, że trwała baza wymaga 
 
 ## Debug APK
 
-Na Windows ustaw JDK 21 i ścieżkę SDK z Android Studio, a następnie zbuduj APK:
+Na Windows ustaw JDK 21 i ścieżkę SDK z Android Studio, a następnie zbuduj APK.
+
+**Nie używaj Javy wbudowanej w Android Studio** (`…\Android Studio\jbr`). Nowe wersje Android Studio mają tam Javę 25, a Gradle 8.14 jej nie obsługuje — build kończy się błędem „Unsupported class file major version 69”. Zainstaluj osobno **Temurin JDK 21** (plik `.msi` z adoptium.net, domyślne opcje); trafia do `C:\Program Files\Eclipse Adoptium\jdk-21…`. Jeśli budujesz z okna Android Studio, wybierz ten JDK w **File → Settings → Build, Execution, Deployment → Build Tools → Gradle → Gradle JDK**.
 
 ```powershell
-$env:JAVA_HOME = 'C:\Program Files\Android\Android Studio\jbr'
+$env:JAVA_HOME = (Get-ChildItem 'C:\Program Files\Eclipse Adoptium' -Directory -Filter 'jdk-21*' | Select-Object -First 1).FullName
 $env:ANDROID_HOME = Join-Path $env:LOCALAPPDATA 'Android\Sdk'
 & "$env:JAVA_HOME\bin\java.exe" -version
 & (Join-Path $androidRoot 'gradlew.bat') -p $androidRoot assembleDebug
@@ -50,6 +52,41 @@ $adb = Join-Path $env:ANDROID_HOME 'platform-tools\adb.exe'
 & $adb devices
 & $adb install -r $apkPath
 ```
+
+Jeśli Windows w ogóle nie widzi telefonu przez kabel (brak go nawet w Eksploratorze), sprawdź: telefon odblokowany przy podłączaniu, **Settings → Security & privacy → Exploit protection → USB-C port** nie jest ustawiony na „Charging-only”, kabel przenosi dane. Prościej jest zainstalować bezprzewodowo.
+
+### Instalacja bez kabla (Wireless debugging)
+
+Telefon i komputer muszą być w tej samej sieci Wi-Fi.
+
+1. W telefonie: **Developer options → Wireless debugging** — włącz i dotknij napisu, aby otworzyć stronę. Pole **IP address & Port** to adres do łączenia.
+2. **Parowanie (raz):** dotknij **Pair device with pairing code**. Telefon pokaże 6-cyfrowy kod i *inny* adres (adres parowania). Na komputerze: `& $adb pair <adres parowania>` i wpisz kod.
+3. **Łączenie (za każdym razem):** `& $adb connect <IP:port ze strony Wireless debugging>`, potem `& $adb devices`. Automatyczne wykrywanie telefonu zwykle nie działa na Windows, więc adres trzeba wpisać ręcznie. Port zmienia się po każdym wyłączeniu Wireless debugging — przy „Connection refused” odczytaj go ponownie.
+4. Dalej jak przez kabel: `& $adb install -r $apkPath`.
+
+## Aktualizacja aplikacji
+
+Nowy pomysł → ticket w GitHub Issues → implementacja na `main` (z testami) → build i instalacja na telefonie. Dane w telefonie zostają, dopóki aplikacja nie zostanie odinstalowana.
+
+1. **Kopia przed aktualizacją:** w telefonie **⚙ → Eksportuj kopię** i zapisz plik poza aplikacją (Pliki/Dysk).
+2. **Build produkcyjny i instalacja** (ustaw `$appRoot`, `$androidRoot`, `JAVA_HOME`, `ANDROID_HOME` i `$adb` jak wyżej):
+
+   ```powershell
+   npm --prefix "$appRoot" run build
+   npm --prefix "$appRoot" run cap:sync
+   & (Join-Path $androidRoot 'gradlew.bat') -p $androidRoot assembleDebug
+   & $adb connect <IP:port>
+   & $adb install -r (Join-Path $androidRoot 'app\build\outputs\apk\debug\app-debug.apk')
+   ```
+
+   Do prawdziwego użytku używaj `build`, nie `build:dev` (ten dodaje przycisk z fikcyjnymi produktami). `install -r` podmienia aplikację i zachowuje dane.
+3. **Sprawdź na telefonie** i zamknij ticket albo zgłoś, co nie działa.
+
+Zasady, które chronią dane:
+
+- **Nie odinstalowuj aplikacji**, żeby coś „naprawić” — odinstalowanie usuwa bazę. Do tego służy kopia z kroku 1.
+- **Klucz podpisu:** debug APK jest podpisany kluczem `%USERPROFILE%\.android\debug.keystore`. Android przyjmie aktualizację tylko z tym samym kluczem. Trzymaj kopię tego pliku; bez niego (nowy komputer, wyczyszczony profil) jedyna droga to eksport → odinstalowanie → instalacja → import.
+- **Zmiany w zapisywanych danych** (nowa kolumna, nowa tabela) muszą też aktualizować bazę, która już jest w telefonie, a nie tylko tworzyć nową. Wzór jest w `src/data/schema.ts` (dopisanie kolumny `from_ggent` do starej bazy). Każdy ticket, który zmienia przechowywane dane, powinien to wymieniać w kryteriach ukończenia.
 
 ## Ustawienia celów i Slot
 
