@@ -105,6 +105,9 @@ export function addNewsSender(db: DB, pattern: string, displayName?: string, add
      ON CONFLICT(pattern) DO UPDATE SET
        display_name = CASE WHEN excluded.display_name IS NOT NULL
                            THEN excluded.display_name ELSE news_senders.display_name END,
+       -- Re-adding a removed sender starts it fresh (no backfill of the gap); an active one keeps its date.
+       added_at = CASE WHEN news_senders.removed_at IS NOT NULL
+                       THEN excluded.added_at ELSE news_senders.added_at END,
        removed_at = NULL`,
   ).run(normalized, displayName ?? null, now);
   return rowToSender(
@@ -137,13 +140,10 @@ export function addNewsSenderFromEmail(
       | Record<string, unknown>
       | undefined;
     if (existing) {
-      const previousAddedAt = Date.parse(existing.added_at as string);
-      const addedAt = Number.isFinite(previousAddedAt) && previousAddedAt < Date.parse(cutoff)
-        ? new Date(previousAddedAt).toISOString()
-        : cutoff;
+      // Not matched above, so this entry was removed: restart it at the clicked email (no backfill).
       const existingId = existing.id as number;
       db.prepare("UPDATE news_senders SET display_name = ?, added_at = ?, removed_at = NULL WHERE id = ?")
-        .run(parsed.name ?? null, addedAt, existingId);
+        .run(parsed.name ?? null, cutoff, existingId);
       const sender = rowToSender(db.prepare("SELECT * FROM news_senders WHERE id = ?").get(existingId) as Record<string, unknown>);
       db.exec("COMMIT");
       return { sender, created: true };

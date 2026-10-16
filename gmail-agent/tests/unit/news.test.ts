@@ -68,6 +68,7 @@ describe("AI News storage", () => {
     const same = addNewsSender(db, "PERSON@example.com");
     expect(same.id).toBe(sender.id);
     expect(same.display_name).toBe("Person");
+    expect(same.added_at).toBe(sender.added_at); // active re-add keeps its start date
     expect(addNewsSender(db, "@Example.com").pattern).toBe("@example.com");
     expect(renameNewsSender(db, sender.id, "Renamed").display_name).toBe("Renamed");
     expect(renameNewsSender(db, sender.id).display_name).toBeUndefined();
@@ -75,9 +76,9 @@ describe("AI News storage", () => {
     const removed = db.prepare("SELECT removed_at FROM news_senders WHERE id = ?").get(sender.id) as { removed_at: string };
     expect(removeNewsSender(db, sender.id)).toBe(false);
     expect((db.prepare("SELECT removed_at FROM news_senders WHERE id = ?").get(sender.id) as { removed_at: string }).removed_at).toBe(removed.removed_at);
-    const restored = addNewsSender(db, "person@example.com");
+    const restored = addNewsSender(db, "person@example.com", undefined, T2);
     expect(restored.id).toBe(sender.id);
-    expect(restored.added_at).toBe(sender.added_at);
+    expect(restored.added_at).toBe(T2); // removed then re-added starts fresh: no backfill of the gap
     expect(restored.display_name).toBeUndefined();
     expect(listNewsSenders(db).map((entry) => entry.id)).toContain(sender.id);
     expect(() => addNewsSender(db, "*.example.com")).toThrow();

@@ -5,7 +5,7 @@ import { getLastChecked, setLastChecked } from "../memory/meta.js";
 import { runClassifier, type ClassifierSummary } from "../agents/classifier.js";
 import { runTracker, generateDailySummary, type TrackerSummary } from "../agents/tracker.js";
 import { refreshUnread } from "../agents/inbox.js";
-import { runNews, type NewsRunSummary } from "../agents/news.js";
+import { runNews, newsModel, type NewsRunSummary } from "../agents/news.js";
 import { logEvent, pruneLogs } from "../memory/logs.js";
 import { ok, type ToolResponse } from "../tools/types.js";
 
@@ -44,17 +44,19 @@ const ZERO_CLASSIFIER: ClassifierSummary = {
   errors: 0,
 };
 const ZERO_TRACKER: TrackerSummary = { checked: 0, updated: 0, delivered: 0, errors: 0 };
-const ZERO_NEWS: NewsRunSummary = {
-  found: 0,
-  eligible: 0,
-  skipped: 0,
-  processed: 0,
-  notAnIssue: 0,
-  pending: 0,
-  failed: 0,
-  errors: 0,
-  model: process.env.OPENAI_NEWS_MODEL?.trim() || "gpt-6-luna",
-};
+function zeroNews(): NewsRunSummary {
+  return {
+    found: 0,
+    eligible: 0,
+    skipped: 0,
+    processed: 0,
+    notAnIssue: 0,
+    pending: 0,
+    failed: 0,
+    errors: 0,
+    model: newsModel(),
+  };
+}
 
 export async function runHeartbeatTick(
   deps: HeartbeatDeps,
@@ -91,7 +93,7 @@ export async function runHeartbeatTick(
     news = await runNews(deps);
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    news = ok({ ...ZERO_NEWS, errors: 1 }, { diagnostics: { error: errorMessage } });
+    news = ok({ ...zeroNews(), errors: 1 }, { diagnostics: { error: errorMessage } });
     logEvent(deps.db, { source: "news", level: "error", message: `News run failed: ${errorMessage}` });
   }
 
@@ -117,7 +119,7 @@ export async function runHeartbeatTick(
       tracker: tracker.data ?? ZERO_TRACKER,
       unread: unread.data?.unread ?? 0,
       summary: summary.data?.summary ?? "",
-      news: news.data ?? ZERO_NEWS,
+      news: news.data ?? zeroNews(),
     },
     {
       next_action: "Heartbeat tick complete. Parcels, unread, daily summary and news updated.",

@@ -53,8 +53,8 @@ export interface AppDeps {
 
 /**
  * Build the dashboard app. Mostly a read-only view over the DB — no Gmail, no OpenAI. The one
- * exceptions (see ADR 0002) are food data and AI News sender/interests settings. Food edits are
- * logged to `logs` with source "manual-edit". Automation lives in the separately-run
+ * exceptions (see ADR 0002) are food data and AI News sender/interests settings. Every such edit
+ * is logged to `logs` with source "manual-edit". Automation lives in the separately-run
  * heartbeat; this server otherwise just renders what's there and pushes an SSE `update` when the DB
  * changes (the server entry drives that via the poller).
  */
@@ -137,6 +137,11 @@ export function createApp(deps: AppDeps): express.Express {
     try {
       const sender = addNewsSender(db, body.pattern, body.display_name?.trim() || undefined,
         body.added_at === undefined ? undefined : new Date(body.added_at).toISOString());
+      logEvent(db, {
+        source: "manual-edit",
+        message: `Added AI News sender ${sender.pattern}`,
+        data: { table: "news_senders", id: sender.id },
+      });
       res.status(201).json({ sender });
     } catch (error) {
       if (error instanceof Error && error.message.startsWith("Invalid news sender pattern:")) {
@@ -160,6 +165,13 @@ export function createApp(deps: AppDeps): express.Express {
     }
     try {
       const result = addNewsSenderFromEmail(db, email);
+      if (result.created) {
+        logEvent(db, {
+          source: "manual-edit",
+          message: `Added AI News sender ${result.sender.pattern} from an email`,
+          data: { table: "news_senders", id: result.sender.id, emailId: email.id },
+        });
+      }
       res.status(result.created ? 201 : 200).json({ sender: result.sender });
     } catch (error) {
       res.status(400).json({ error: error instanceof Error ? error.message : String(error) });
@@ -180,7 +192,13 @@ export function createApp(deps: AppDeps): express.Express {
       res.status(404).json({ error: `Active news sender ${id} not found.` });
       return;
     }
-    res.json({ sender: renameNewsSender(db, id, req.body.display_name.trim() || undefined) });
+    const sender = renameNewsSender(db, id, req.body.display_name.trim() || undefined);
+    logEvent(db, {
+      source: "manual-edit",
+      message: `Renamed AI News sender #${id} to "${req.body.display_name.trim()}"`,
+      data: { table: "news_senders", id },
+    });
+    res.json({ sender });
   });
 
   app.delete("/api/news/senders/:id", (req, res) => {
@@ -193,6 +211,11 @@ export function createApp(deps: AppDeps): express.Express {
       res.status(404).json({ error: `Active news sender ${id} not found.` });
       return;
     }
+    logEvent(db, {
+      source: "manual-edit",
+      message: `Removed AI News sender #${id}`,
+      data: { table: "news_senders", id },
+    });
     res.json({ ok: true });
   });
 
@@ -203,6 +226,7 @@ export function createApp(deps: AppDeps): express.Express {
       return;
     }
     setNewsInterests(db, req.body.interests);
+    logEvent(db, { source: "manual-edit", message: "Updated AI News interests", data: { table: "meta" } });
     res.json({ interests: getNewsInterests(db) });
   });
 

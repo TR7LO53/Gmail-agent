@@ -58,6 +58,34 @@ describe("AI News API", () => {
     expect((await json("/api/news/senders/from-email", "POST", { emailId: "missing" })).response.status).toBe(404);
   });
 
+  it("restarts a removed sender at the clicked email instead of its old start date", async () => {
+    const old = addNewsSender(db, "news@example.com", "News", "2026-01-01T00:00:00.000Z");
+    removeNewsSender(db, old.id);
+    upsertEmail(db, { id: "msg/again", subject: "Back", sender: "News <news@example.com>", internalDate: String(Date.parse("2026-10-16T08:00:00.000Z")), is_unread: true });
+    const again = await json("/api/news/senders/from-email", "POST", { emailId: "msg/again" });
+    expect(again.response.status).toBe(201);
+    expect(again.body.sender).toMatchObject({ id: old.id, added_at: "2026-10-16T07:59:59.999Z" });
+  });
+
+  it("logs every sender and interests edit as a manual edit", async () => {
+    const created = await json("/api/news/senders", "POST", { pattern: "@example.com", display_name: "Ex" });
+    const id = created.body.sender.id;
+    await json(`/api/news/senders/${id}`, "PUT", { display_name: "Example" });
+    await json(`/api/news/senders/${id}`, "DELETE");
+    await json("/api/news/interests", "PUT", { interests: "Agents" });
+    upsertEmail(db, { id: "msg/log", subject: "Hi", sender: "A <a@other.com>", internalDate: String(Date.parse("2026-10-16T08:00:00.000Z")), is_unread: true });
+    await json("/api/news/senders/from-email", "POST", { emailId: "msg/log" });
+    await json("/api/news/senders/from-email", "POST", { emailId: "msg/log" }); // already matched: no second log
+    const logs = db.prepare("SELECT message FROM logs WHERE source = 'manual-edit' ORDER BY id").all() as { message: string }[];
+    expect(logs.map((row) => row.message)).toEqual([
+      "Added AI News sender @example.com",
+      'Renamed AI News sender #1 to "Example"',
+      "Removed AI News sender #1",
+      "Updated AI News interests",
+      "Added AI News sender a@other.com from an email",
+    ]);
+  });
+
   it("returns feed shape, exact/domain email flags, and sender soft removal", async () => {
     const domain = addNewsSender(db, "@example.com", "Example News");
     addNewsSender(db, "person@exact.com");
