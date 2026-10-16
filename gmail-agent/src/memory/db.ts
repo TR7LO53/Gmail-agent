@@ -94,7 +94,44 @@ CREATE TABLE IF NOT EXISTS food_presets (
   carbs_g    REAL NOT NULL,
   fat_g      REAL NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS news_senders (
+  id           INTEGER PRIMARY KEY AUTOINCREMENT,
+  pattern      TEXT NOT NULL UNIQUE,
+  display_name TEXT,
+  added_at     TEXT NOT NULL,
+  removed_at   TEXT
+);
+
+CREATE TABLE IF NOT EXISTS news_summaries (
+  message_id   TEXT PRIMARY KEY,
+  sender_id    INTEGER NOT NULL REFERENCES news_senders(id),
+  from_address TEXT NOT NULL,
+  subject      TEXT NOT NULL,
+  received_at  TEXT NOT NULL,
+  status       TEXT NOT NULL CHECK (status IN ('ok', 'failed', 'not_an_issue', 'pending')),
+  attempts     INTEGER NOT NULL DEFAULT 0
+              CHECK (attempts >= 0 AND attempts = CAST(attempts AS INTEGER)),
+  bullets      TEXT NOT NULL DEFAULT '[]',
+  score        INTEGER
+              CHECK (score IS NULL OR (score BETWEEN 1 AND 10 AND score = CAST(score AS INTEGER))),
+  reason       TEXT,
+  error        TEXT,
+  created_at   TEXT NOT NULL,
+  CHECK (status != 'ok' OR score IS NOT NULL)
+);
+
+CREATE INDEX IF NOT EXISTS idx_news_summaries_received_at ON news_summaries(received_at);
+CREATE INDEX IF NOT EXISTS idx_news_summaries_sender_status_received
+  ON news_summaries(sender_id, status, received_at);
 `;
+
+const DEFAULT_NEWS_INTERESTS = [
+  "Architecture of AI workflows and agentic systems",
+  "Tools, but only if useful at work and if they raise the quality of software and systems",
+  "Evaluation of AI coding agents",
+  "NOT wanted: local models (counts against the score)",
+].join("\n");
 
 /** Add a column to an existing table if it's missing (CREATE TABLE IF NOT EXISTS can't alter). */
 function ensureColumn(db: DB, table: string, column: string, type: string): void {
@@ -114,6 +151,10 @@ export function openDb(dbPath?: string): DB {
   const db = new DatabaseSync(p);
   db.exec("PRAGMA journal_mode = WAL");
   db.exec(SCHEMA);
+  db.prepare("INSERT INTO meta (key, value) VALUES (?, ?) ON CONFLICT(key) DO NOTHING").run(
+    "news_interests",
+    DEFAULT_NEWS_INTERESTS,
+  );
   // Migration: older DBs have food_log without the per-item original (Polish) name.
   ensureColumn(db, "food_log", "original", "TEXT");
   // Migration: older DBs have food_log without a provenance tag ('preset' | 'lookup').

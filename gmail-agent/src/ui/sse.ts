@@ -1,4 +1,5 @@
 import type { DB } from "../memory/db.js";
+import { createHash } from "node:crypto";
 import { getLastChecked } from "../memory/meta.js";
 
 /**
@@ -68,5 +69,11 @@ export function getDashboardSignature(db: DB): string {
     m: string | null;
   };
   const logs = db.prepare("SELECT MAX(id) AS m FROM logs").get() as { m: number | null };
-  return `${getLastChecked(db) ?? ""}|${decisions.n}|${parcels.m ?? ""}|${emails.n}|${emails.m ?? ""}|${emails.u ?? 0}|${food.n}|${food.m ?? ""}|${logs.m ?? 0}`;
+  const news = {
+    senders: db.prepare("SELECT id, pattern, display_name, added_at, removed_at FROM news_senders ORDER BY id").all(),
+    summaries: db.prepare("SELECT message_id, sender_id, from_address, subject, received_at, status, attempts, bullets, score, reason, error, created_at FROM news_summaries ORDER BY message_id").all(),
+    interests: db.prepare("SELECT value FROM meta WHERE key = 'news_interests'").get(),
+  };
+  const newsSignature = createHash("sha256").update(JSON.stringify(news)).digest("hex");
+  return `${getLastChecked(db) ?? ""}|${decisions.n}|${parcels.m ?? ""}|${emails.n}|${emails.m ?? ""}|${emails.u ?? 0}|${food.n}|${food.m ?? ""}|${logs.m ?? 0}|${newsSignature}`;
 }

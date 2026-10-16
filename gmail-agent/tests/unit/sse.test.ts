@@ -3,6 +3,7 @@ import { openDb } from "../../src/memory/db.js";
 import { upsertParcel } from "../../src/memory/parcels.js";
 import { recordDecision } from "../../src/memory/decisions.js";
 import { setLastChecked } from "../../src/memory/meta.js";
+import { addNewsSender, saveNewsSummary, setNewsInterests } from "../../src/memory/news.js";
 import { SseBroadcaster, getDashboardSignature } from "../../src/ui/sse.js";
 import type { DB } from "../../src/memory/db.js";
 
@@ -88,5 +89,26 @@ describe("getDashboardSignature", () => {
     const before = getDashboardSignature(db);
     setLastChecked(db, "2026-07-01T12:00:00.000Z");
     expect(getDashboardSignature(db)).not.toBe(before);
+  });
+
+  it("changes when news senders, interests, and existing summaries change", () => {
+    const before = getDashboardSignature(db);
+    const sender = addNewsSender(db, "writer@example.com", "Writer");
+    expect(getDashboardSignature(db)).not.toBe(before);
+
+    const afterSender = getDashboardSignature(db);
+    setNewsInterests(db, "AI systems");
+    expect(getDashboardSignature(db)).not.toBe(afterSender);
+
+    saveNewsSummary(db, {
+      message_id: "m1", sender_id: sender.id, from_address: "writer@example.com", subject: "AI",
+      received_at: "2026-07-01T10:00:00.000Z", status: "ok", score: 7, bullets: ["One"], created_at: "fixed",
+    });
+    const afterInsert = getDashboardSignature(db);
+    saveNewsSummary(db, {
+      message_id: "m1", sender_id: sender.id, from_address: "writer@example.com", subject: "AI",
+      received_at: "2026-07-01T10:00:00.000Z", status: "ok", score: 8, bullets: ["Updated"], created_at: "ignored",
+    });
+    expect(getDashboardSignature(db)).not.toBe(afterInsert);
   });
 });

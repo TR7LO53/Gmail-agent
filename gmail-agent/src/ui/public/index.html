@@ -106,8 +106,19 @@
       .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin-top: 10px; }
       .form-grid label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
       .form-grid input { background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font-size: 13px; }
+      .form-grid textarea { min-height: 120px; resize: vertical; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 8px; font: inherit; }
       .form-actions { display: flex; gap: 8px; margin-top: 10px; }
       .err { color: #ff6b6b; font-size: 13px; margin-top: 8px; }
+      .news-card { border-top: 1px solid var(--line); padding: 12px 0; overflow-wrap: anywhere; }
+      .news-card:first-child { border-top: none; }
+      .news-card.failed { color: var(--muted); background: #151827; padding: 12px; border-radius: 8px; margin: 8px 0; }
+      .news-card h3 { font-size: 15px; margin: 5px 0; }
+      .news-card ul { margin: 6px 0; padding-left: 22px; }
+      .news-meta { color: var(--muted); font-size: 12px; }
+      .news-confirmed { color: #47d16c; border-color: #2c6b3f; }
+      .news-added { color: var(--muted); border-color: var(--line); cursor: default; }
+      .news-send-row { padding: 10px 0; border-top: 1px solid var(--line); overflow-wrap: anywhere; }
+      @media (max-width: 520px) { main { padding: 14px; } .tabs { padding-left: 14px; padding-right: 14px; } .tab { padding: 8px 10px; } }
     </style>
   </head>
   <body>
@@ -122,6 +133,7 @@
     <nav class="tabs">
       <button class="tab active" id="tabDashboard" data-view="dashboard">Dashboard</button>
       <button class="tab" id="tabFoodData" data-view="food-data">Food Data</button>
+      <button class="tab" id="tabAiNews" data-view="ai-news">AI News</button>
     </nav>
 
     <main id="view-dashboard" class="view">
@@ -174,6 +186,36 @@
           <span class="chev" aria-hidden="true">▸</span>
         </div>
         <div id="decisions" style="margin-top: 14px" hidden></div>
+      </section>
+    </main>
+
+    <main id="view-ai-news" class="view" hidden>
+      <section>
+        <h2>Leaderboard (last 30 days)</h2>
+        <div id="newsLeaderboard"><p class="empty">Loading…</p></div>
+        <div id="newsLeaderboardError" class="err" role="status"></div>
+      </section>
+      <section>
+        <h2>Feed</h2>
+        <div id="newsFeed"><p class="empty">Loading…</p></div>
+        <div id="newsFeedError" class="err" role="status"></div>
+      </section>
+      <section>
+        <h2>Senders</h2>
+        <div id="newsSenders"><p class="empty">Loading…</p></div>
+        <div id="newsSendersError" class="err" role="status"></div>
+        <form id="newsSenderCreateForm">
+          <div class="form-grid">
+            <label>Address or @domain <input name="pattern" autocomplete="off" required /></label>
+            <label>Display name (optional) <input name="display_name" /></label>
+          </div>
+          <div class="form-actions"><button type="submit" class="btn">Add sender</button></div>
+          <div class="err" id="newsSenderCreateError" role="status"></div>
+        </form>
+        <form id="newsInterestsForm" style="margin-top: 18px">
+          <div class="form-grid"><label>Interests <textarea name="interests" aria-label="Interests"></textarea></label></div>
+          <div class="form-actions"><button type="submit" class="btn">Save</button><span id="newsInterestsStatus" class="news-meta" role="status"></span></div>
+        </form>
       </section>
     </main>
 

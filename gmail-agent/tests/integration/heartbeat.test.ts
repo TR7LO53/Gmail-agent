@@ -86,6 +86,7 @@ describe("Heartbeat tick", () => {
     // tracker moved the freshly-classified parcel shipped -> in_transit
     expect(result.data?.tracker.updated).toBe(1);
     expect(result.data?.summary).toBeTruthy();
+    expect(result.data?.news).toMatchObject({ eligible: 0, pending: 0 });
     // refreshUnread saw the (fake) unread email
     expect(result.data?.unread).toBe(1);
     expect(listUnread(db)).toHaveLength(1);
@@ -100,6 +101,7 @@ describe("Heartbeat tick", () => {
     expect(sources.has("gmail_search")).toBe(true);
     expect(sources.has("classifier")).toBe(true);
     expect(sources.has("summary")).toBe(true);
+    expect(sources.has("news")).toBe(true);
   });
 
   it("deduplicates the same email on the second tick", async () => {

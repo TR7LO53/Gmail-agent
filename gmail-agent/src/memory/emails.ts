@@ -45,6 +45,14 @@ function rowToEmail(row: Record<string, unknown>): EmailRecord {
   };
 }
 
+/** Return one locally stored email by its Gmail message ID. */
+export function getEmail(db: DB, id: string): EmailRecord | undefined {
+  const row = db.prepare("SELECT * FROM emails WHERE id = ?").get(id) as
+    | Record<string, unknown>
+    | undefined;
+  return row ? rowToEmail(row) : undefined;
+}
+
 /** The UTC instant of the start of today in the machine's LOCAL timezone (for "today" queries). */
 export function startOfLocalDayIso(now: Date = new Date()): string {
   return new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();

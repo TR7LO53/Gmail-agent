@@ -34,6 +34,11 @@ describe("activity logs", () => {
     expect(listRecentLogs(db, 1)[0].level).toBe("error");
   });
 
+  it("accepts the News source", () => {
+    logEvent(db, { source: "news", message: "News run complete" });
+    expect(listRecentLogs(db, 1)[0].source).toBe("news");
+  });
+
   it("pruneLogs keeps only the newest N", () => {
     for (let i = 0; i < 10; i++) logEvent(db, { source: "tracker", message: "m" + i });
     pruneLogs(db, 4);

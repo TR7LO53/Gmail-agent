@@ -53,6 +53,7 @@ describe("Today emails list", () => {
     const app = loadApp();
     app.renderTodayEmails(makeEmails(8));
     expect(document.querySelectorAll("#todayEmails .email").length).toBe(5);
+    expect(document.querySelectorAll("#todayEmails .news-add-email").length).toBe(5);
     expect((document.getElementById("emailsMoreRow") as HTMLElement).hidden).toBe(false);
     expect(document.getElementById("toggleEmails")!.textContent).toBe("Show 3 more");
   });
@@ -62,6 +63,26 @@ describe("Today emails list", () => {
     app.renderTodayEmails(makeEmails(5));
     expect(document.querySelectorAll("#todayEmails .email").length).toBe(5);
     expect((document.getElementById("emailsMoreRow") as HTMLElement).hidden).toBe(true);
+  });
+
+  it("renders an inactive AI News label for emails already covered by a sender", () => {
+    const app = loadApp();
+    const data = makeEmails(1);
+    (data.recent[0] as any).in_ai_news = true;
+    app.renderTodayEmails(data);
+    expect(document.querySelector("#todayEmails .news-added")?.textContent).toBe("✓ AI News");
+    expect(document.querySelector("#todayEmails .news-add-email")).toBeNull();
+  });
+
+  it("renders AI News actions for the today fallback and keeps the existing expansion list", () => {
+    const app = loadApp();
+    const data = makeEmails(7);
+    data.recent = [];
+    data.today = makeEmails(7).recent as any;
+    (data.today[0] as any).in_ai_news = false;
+    app.renderTodayEmails(data);
+    expect(document.querySelectorAll("#todayEmails .news-add-email")).toHaveLength(5);
+    expect(document.getElementById("emailsMoreRow")!.hidden).toBe(false);
   });
 });
 

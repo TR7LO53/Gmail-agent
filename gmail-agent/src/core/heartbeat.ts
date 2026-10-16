@@ -5,6 +5,7 @@ import { getLastChecked, setLastChecked } from "../memory/meta.js";
 import { runClassifier, type ClassifierSummary } from "../agents/classifier.js";
 import { runTracker, generateDailySummary, type TrackerSummary } from "../agents/tracker.js";
 import { refreshUnread } from "../agents/inbox.js";
+import { runNews, newsModel, type NewsRunSummary } from "../agents/news.js";
 import { logEvent, pruneLogs } from "../memory/logs.js";
 import { ok, type ToolResponse } from "../tools/types.js";
 
@@ -30,6 +31,7 @@ export interface HeartbeatResult {
   tracker: TrackerSummary;
   unread: number;
   summary: string;
+  news: NewsRunSummary;
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -42,6 +44,19 @@ const ZERO_CLASSIFIER: ClassifierSummary = {
   errors: 0,
 };
 const ZERO_TRACKER: TrackerSummary = { checked: 0, updated: 0, delivered: 0, errors: 0 };
+function zeroNews(): NewsRunSummary {
+  return {
+    found: 0,
+    eligible: 0,
+    skipped: 0,
+    processed: 0,
+    notAnIssue: 0,
+    pending: 0,
+    failed: 0,
+    errors: 0,
+    model: newsModel(),
+  };
+}
 
 export async function runHeartbeatTick(
   deps: HeartbeatDeps,
@@ -73,6 +88,14 @@ export async function runHeartbeatTick(
   // Refresh the current unread set (cheap, metadata-only) before summarising.
   const unread = await refreshUnread({ gmail: deps.gmail, db: deps.db });
   const summary = await generateDailySummary({ llm: deps.llm, db: deps.db });
+  let news: ToolResponse<NewsRunSummary>;
+  try {
+    news = await runNews(deps);
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    news = ok({ ...zeroNews(), errors: 1 }, { diagnostics: { error: errorMessage } });
+    logEvent(deps.db, { source: "news", level: "error", message: `News run failed: ${errorMessage}` });
+  }
 
   setLastChecked(deps.db, now.toISOString());
 
@@ -83,6 +106,7 @@ export async function runHeartbeatTick(
       classifierOk: classifier.success,
       trackerOk: tracker.success,
       unreadOk: unread.success,
+      newsOk: news.success && (news.data?.errors ?? 0) === 0 && !news.data?.searchError,
     },
   });
   pruneLogs(deps.db);
@@ -95,15 +119,17 @@ export async function runHeartbeatTick(
       tracker: tracker.data ?? ZERO_TRACKER,
       unread: unread.data?.unread ?? 0,
       summary: summary.data?.summary ?? "",
+      news: news.data ?? zeroNews(),
     },
     {
-      next_action: "Heartbeat tick complete. Parcels, unread and daily summary updated.",
+      next_action: "Heartbeat tick complete. Parcels, unread, daily summary and news updated.",
       diagnostics: {
         days,
         lastCheckedBefore: lastChecked ?? "(first run)",
         classifierOk: classifier.success,
         trackerOk: tracker.success,
         unreadOk: unread.success,
+        newsOk: news.success && (news.data?.errors ?? 0) === 0 && !news.data?.searchError,
       },
     },
   );
