@@ -12,6 +12,7 @@ export type LogSource =
   | "gmail_search"
   | "classifier"
   | "tracker"
+  | "news"
   | "inbox"
   | "summary"
   | "manual-edit";

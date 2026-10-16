@@ -58,6 +58,10 @@ npm run test:e2e  # real mailbox checks — only after `npm run auth`
 npm run typecheck # tsc --noEmit
 ```
 
+## News agent
+
+The News agent runs as the last processing step of each heartbeat, including the `npm start` launcher. It searches across Gmail categories for active senders, reads up to 50,000 characters from each matching message, and scores real news against the interests stored in the database. Set `OPENAI_NEWS_MODEL` to choose its model; it defaults to `gpt-6-luna`. Failed reads or AI calls are retried on later heartbeats and stop after three failed attempts.
+
 Set `E2E_TEST_SENDER` to a real sender to make the e2e search/read assertions meaningful:
 ```bash
 E2E_TEST_SENDER="noreply@dhl.com" npm run test:e2e

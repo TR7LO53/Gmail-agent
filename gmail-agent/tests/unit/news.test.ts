@@ -8,6 +8,7 @@ import {
   getNewsInterests,
   getNewsSummary,
   listNewsFeed,
+  listPendingNewsSummaries,
   listNewsSenders,
   matchSender,
   newsLeaderboard,
@@ -127,6 +128,16 @@ describe("AI News storage", () => {
     expect(() => save(db, "bad-attempts", sender.id, "failed", T1, undefined, { attempts: -1 })).toThrow();
     expect(() => save(db, "bad-sender", 999, "failed", T1)).toThrow();
     expect(() => saveNewsSummary(db, { message_id: "bad-status", sender_id: sender.id, from_address: "a@example.com", subject: "", received_at: T1, status: "unknown" as "ok" })).toThrow();
+  });
+
+  it("lists active pending rows in stable order and omits removed senders", () => {
+    const active = addNewsSender(db, "@example.com");
+    const removed = addNewsSender(db, "@removed.example");
+    save(db, "z", active.id, "pending", T1, undefined, { created_at: T1 });
+    save(db, "a", active.id, "pending", T1, undefined, { created_at: T0 });
+    save(db, "gone", removed.id, "pending", T1);
+    removeNewsSender(db, removed.id);
+    expect(listPendingNewsSummaries(db).map((item) => item.message_id)).toEqual(["a", "z"]);
   });
 
   it("filters feed by received time and status, and ranks active senders by ok average", () => {

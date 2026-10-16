@@ -101,4 +101,22 @@ describe("gmailRead (integration, fake Gmail)", () => {
     expect(res.success).toBe(false);
     expect(res.recovery).toMatch(/no thread or message found/i);
   });
+
+  it("keeps the 8000-character default and allows the News limit up to 50000", async () => {
+    const longText = "x".repeat(12000);
+    const gmail = makeFakeGmail({
+      messagesGet: async () => ({ data: { threadId: "t1" } }),
+      threadsGet: async () => ({ data: { messages: [{ id: "m1", payload: { mimeType: "text/plain", body: { data: b64url(longText) } } }] } }),
+    });
+    const normal = await gmailRead({ id: "m1", detail: "full" }, { gmail });
+    expect(normal.data?.messages[0].body).toHaveLength(8000);
+    expect(normal.data?.messages[0].bodyTruncated).toBe(true);
+    expect(normal.diagnostics?.note).toContain("8000");
+    const news = await gmailRead({ id: "m1", detail: "full", maxBodyChars: 50000 }, { gmail });
+    expect(news.data?.messages[0].body).toHaveLength(12000);
+    expect(news.data?.messages[0].bodyTruncated).toBeUndefined();
+    const exact = await gmailRead({ id: "m1", detail: "full", maxBodyChars: 12000 }, { gmail });
+    expect(exact.data?.messages[0].bodyTruncated).toBeUndefined();
+    expect(await gmailRead({ id: "m1", detail: "full", maxBodyChars: 50001 }, { gmail })).toMatchObject({ success: false });
+  });
 });

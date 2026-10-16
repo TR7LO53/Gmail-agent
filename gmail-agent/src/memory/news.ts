@@ -261,6 +261,19 @@ export function getNewsSummary(db: DB, messageId: string): NewsSummary | undefin
   return row ? rowToSummary(row) : undefined;
 }
 
+/** Summaries waiting for another processing attempt, ordered consistently across ticks. */
+export function listPendingNewsSummaries(db: DB): NewsSummary[] {
+  const rows = db
+    .prepare(
+      `SELECT s.* FROM news_summaries s
+       JOIN news_senders n ON n.id = s.sender_id
+       WHERE s.status = 'pending' AND n.removed_at IS NULL
+       ORDER BY s.created_at ASC, s.message_id ASC`,
+    )
+    .all() as Record<string, unknown>[];
+  return rows.map(rowToSummary);
+}
+
 export function listNewsFeed(db: DB, sinceIso: string): NewsFeedItem[] {
   const rows = db
     .prepare(

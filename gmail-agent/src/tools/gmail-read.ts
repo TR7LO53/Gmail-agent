@@ -5,12 +5,14 @@ import { ok, fail, type ToolResponse } from "./types";
 import { mapError } from "./errors";
 
 /** Bodies are capped so a huge email can't blow up the context. */
-const MAX_BODY_CHARS = 8000;
+const DEFAULT_MAX_BODY_CHARS = 8000;
+const MAX_ALLOWED_BODY_CHARS = 50000;
 
 export const readInputSchema = z.object({
   /** A message id OR a thread id — the tool figures out which (the agent never has to). */
   id: z.string().min(1),
   detail: z.enum(["summary", "full"]).optional(),
+  maxBodyChars: z.number().int().positive().max(MAX_ALLOWED_BODY_CHARS).optional(),
 });
 export type ReadInput = z.infer<typeof readInputSchema>;
 
@@ -55,7 +57,13 @@ export async function gmailRead(
   input: ReadInput,
   deps: { gmail?: GmailClient } = {},
 ): Promise<ToolResponse<ReadData>> {
+  const parsed = readInputSchema.safeParse(input);
+  if (!parsed.success) {
+    return fail(`Invalid gmail_read input: ${parsed.error.issues.map((issue) => issue.message).join("; ")}`);
+  }
+  input = parsed.data;
   const detail = input.detail ?? "summary";
+  const maxBodyChars = input.maxBodyChars ?? DEFAULT_MAX_BODY_CHARS;
   try {
     const gmail = deps.gmail ?? (await getGmailClient());
     const threadId = await resolveThreadId(gmail, input.id);
@@ -88,8 +96,8 @@ export async function gmailRead(
 
       if (detail === "full") {
         const decoded = decodeBody(m.payload ?? undefined);
-        const truncated = decoded.length > MAX_BODY_CHARS;
-        row.body = truncated ? decoded.slice(0, MAX_BODY_CHARS) : decoded;
+        const truncated = decoded.length > maxBodyChars;
+        row.body = truncated ? decoded.slice(0, maxBodyChars) : decoded;
         if (truncated) {
           row.bodyTruncated = true;
           anyTruncated = true;
@@ -111,7 +119,7 @@ export async function gmailRead(
           threadId,
           messageCount: messages.length,
           detail,
-          ...(anyTruncated ? { note: `Some bodies were truncated to ${MAX_BODY_CHARS} chars.` } : {}),
+          ...(anyTruncated ? { note: `Some bodies were truncated to ${maxBodyChars} chars.` } : {}),
         },
       },
     );
