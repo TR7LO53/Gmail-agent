@@ -86,6 +86,12 @@ To rebuild the whole history from scratch, run `npm run build-holdings-history` 
 
 A price source failure is a normal `200` with `ok: false`, `stale: true`, the error and the time of the last success (kept in memory only; prices are never stored). A Derived Series is stale when any of its inputs failed.
 
+### Markets tab
+
+The dashboard's **Markets** tab (`src/ui/public/markets.js`) shows the Watchlist on the left and a 2×2 grid of Chart Slots on the right. Click a Slot to select it, then click a Watchlist entry to put that entry in it; each Slot has its own timeframe (H1, H4, D1, W1, MN), "Jump to now" and maximize / restore (Esc also restores). The grid (each Slot's entry and timeframe, and the selected Slot) is remembered in the browser's `localStorage`. Nothing is fetched until the tab is open; then everything refreshes every 5 minutes, and stops while another tab or a hidden browser tab is active. A failed refresh keeps the old chart with a grey "last update HH:MM" label. The "Strategy holdings" box shows the latest Snapshot, the stale and sanity-check warnings, and a small form for a manual Snapshot. Times are shown in Polish local time.
+
+Charts are drawn by TradingView Lightweight Charts 5.3.0 (Apache-2.0), served as the unmodified file `src/ui/public/vendor/lightweight-charts.standalone.production.js`. To update it, copy `dist/lightweight-charts.standalone.production.js` from the `lightweight-charts` npm package over that file (keep its licence header) and check the tab in a browser.
+
 ## Layout
 
 ```

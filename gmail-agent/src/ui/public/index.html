@@ -118,6 +118,35 @@
       .news-confirmed { color: #47d16c; border-color: #2c6b3f; }
       .news-added { color: var(--muted); border-color: var(--line); cursor: default; }
       .news-send-row { padding: 10px 0; border-top: 1px solid var(--line); overflow-wrap: anywhere; }
+      main.markets { max-width: 1600px; grid-template-columns: 260px minmax(0, 1fr); align-items: start; }
+      main.markets[hidden] { display: none; }
+      .markets-side { display: grid; gap: 20px; }
+      .wl-row { display: block; width: 100%; text-align: left; font: inherit; color: var(--text); background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; cursor: pointer; }
+      .wl-row:hover { border-color: var(--accent); }
+      .wl-row .wl-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+      .wl-row .wl-name { font-weight: 600; font-size: 14px; }
+      .wl-row .wl-value { font-size: 14px; font-variant-numeric: tabular-nums; }
+      .wl-row .wl-sub { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--muted); margin-top: 2px; }
+      .wl-row .wl-grid-mark { font-size: 11px; color: var(--accent); border: 1px solid #33407a; border-radius: 999px; padding: 0 7px; }
+      .wl-row .wl-grid-mark[hidden] { display: none; }
+      .chg-up { color: #47d16c; }
+      .chg-down { color: #ff6b6b; }
+      .stale-label { color: var(--muted); font-size: 11px; }
+      #marketsGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+      .chart-slot { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 8px; height: 360px; display: flex; flex-direction: column; min-width: 0; }
+      .chart-slot.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+      .chart-slot.maximized { position: fixed; inset: 0; z-index: 50; height: auto; border-radius: 0; background: var(--bg); padding: 14px; }
+      .slot-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 6px; }
+      .slot-title { font-weight: 600; font-size: 14px; margin-right: auto; }
+      .slot-head .btn.active { border-color: var(--accent); color: var(--accent); }
+      .slot-body { position: relative; flex: 1; min-height: 0; }
+      .slot-chart { position: absolute; inset: 0; }
+      .slot-msg { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; text-align: center; color: var(--muted); padding: 12px; pointer-events: none; z-index: 2; }
+      .slot-msg[hidden] { display: none; }
+      .slot-foot { min-height: 16px; margin-top: 4px; }
+      #marketsHoldings .hold-warn { color: var(--warn); font-size: 13px; margin-top: 6px; }
+      .markets-note { color: var(--muted); font-size: 12px; margin: 6px 0 0; }
+      @media (max-width: 900px) { main.markets { grid-template-columns: 1fr; } #marketsGrid { grid-template-columns: 1fr; } }
       @media (max-width: 520px) { main { padding: 14px; } .tabs { padding-left: 14px; padding-right: 14px; } .tab { padding: 8px 10px; } }
     </style>
   </head>
@@ -134,6 +163,7 @@
       <button class="tab active" id="tabDashboard" data-view="dashboard">Dashboard</button>
       <button class="tab" id="tabFoodData" data-view="food-data">Food Data</button>
       <button class="tab" id="tabAiNews" data-view="ai-news">AI News</button>
+      <button class="tab" id="tabMarkets" data-view="markets">Markets</button>
     </nav>
 
     <main id="view-dashboard" class="view">
@@ -274,6 +304,31 @@
       </section>
     </main>
 
+    <main id="view-markets" class="view markets" hidden>
+      <div class="markets-side">
+        <section>
+          <h2>Watchlist</h2>
+          <div id="marketsWatchlist"></div>
+        </section>
+        <section id="marketsHoldings">
+          <h2>Strategy holdings</h2>
+          <div id="marketsHoldingsInfo"><p class="empty">Loading…</p></div>
+          <form id="marketsHoldingsForm">
+            <div class="form-grid" style="grid-template-columns: 1fr">
+              <label>Date <input name="date" type="date" required /></label>
+              <label>BTC held <input name="btc_held" type="number" step="any" min="0" required /></label>
+              <label>Shares outstanding <input name="shares_outstanding" type="number" step="1" min="1" required /></label>
+            </div>
+            <div class="form-actions"><button type="submit" class="btn">Save snapshot</button></div>
+            <div class="err" id="marketsHoldingsErr" role="status"></div>
+          </form>
+        </section>
+      </div>
+      <div id="marketsGrid"></div>
+    </main>
+
+    <script src="vendor/lightweight-charts.standalone.production.js"></script>
+    <script src="markets.js"></script>
     <script src="app.js"></script>
   </body>
 </html>
