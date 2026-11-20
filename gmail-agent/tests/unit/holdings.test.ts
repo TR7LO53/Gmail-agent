@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { openDb, type DB } from "../../src/memory/db.js";
 import {
   getHoldingsSnapshotAt,
+  getLatestAutomaticHoldingsSnapshot,
   getLatestHoldingsSnapshot,
   getPendingHoldingsWarning,
   isHoldingsStale,
@@ -43,6 +44,15 @@ describe("holdings snapshots", () => {
       const before = getLatestHoldingsSnapshot(db);
       expect(save("2026-01-01", 95).status).toBe("skipped_manual");
       expect(getLatestHoldingsSnapshot(db)).toEqual(before);
+    });
+
+    it("the latest automatic snapshot ignores newer manual ones", () => {
+      expect(getLatestAutomaticHoldingsSnapshot(db)).toBeUndefined();
+      save("2026-01-01", 100);
+      save("2026-01-08", 105, "manual");
+      expect(getLatestAutomaticHoldingsSnapshot(db)?.date).toBe("2026-01-01");
+      save("2026-01-15", 110);
+      expect(getLatestAutomaticHoldingsSnapshot(db)?.date).toBe("2026-01-15");
     });
 
     it("a manual save skips the sanity check and is logged as a manual edit", () => {

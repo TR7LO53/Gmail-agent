@@ -67,6 +67,14 @@ Set `E2E_TEST_SENDER` to a real sender to make the e2e search/read assertions me
 E2E_TEST_SENDER="noreply@dhl.com" npm run test:e2e
 ```
 
+## Markets: Strategy holdings
+
+The Premium chart needs Strategy's BTC held and share count. The history (August 2020 onwards) ships with the app; `src/markets/holdings-reader.ts` adds new weekly readings straight from SEC EDGAR: BTC held from the weekly 8-K, shares from the cover page of the latest 10-Q / 10-K. It is meant to run when the Markets tab is opened (the route that calls it is a separate ticket) and runs at most once every 6 hours, reads one document at a time, and a failed run saves nothing and shows an error in Activity.
+
+It needs `SEC_USER_AGENT` (an app name and a contact, e.g. `Ggent you@example.com`; see `.env.example`). Without it the Markets tab works as before, but holdings are not updated by themselves and Activity shows a warning. A reading that looks wrong (BTC went down, or up by more than 10%) is not saved; you enter it by hand instead.
+
+To rebuild the whole history from scratch, run `npm run build-holdings-history` (it overwrites `src/markets/data/holdings-history.json`).
+
 ## Layout
 
 ```

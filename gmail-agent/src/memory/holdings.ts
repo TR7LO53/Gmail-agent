@@ -92,6 +92,14 @@ export function getLatestHoldingsSnapshot(db: DB): HoldingsSnapshot | undefined 
   return row ? fromRow(row as Record<string, unknown>) : undefined;
 }
 
+/** The newest snapshot with source "automatic", or undefined if there is none. */
+export function getLatestAutomaticHoldingsSnapshot(db: DB): HoldingsSnapshot | undefined {
+  const row = db
+    .prepare("SELECT * FROM holdings_snapshots WHERE source = 'automatic' ORDER BY date DESC LIMIT 1")
+    .get();
+  return row ? fromRow(row as Record<string, unknown>) : undefined;
+}
+
 /**
  * The snapshot in effect at a moment: the latest one dated on or before that moment's UTC day.
  * Undefined if the moment is before the first snapshot.

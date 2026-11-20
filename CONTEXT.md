@@ -41,7 +41,7 @@ Read-only average of daily total macros over the last 7 calendar days, including
 ### Markets
 
 **Holdings Snapshot**:
-A dated Strategy treasury observation: BTC held and Basic Shares Outstanding (actual class A + class B common shares, not diluted), tagged automatic or manual. It applies from 00:00 UTC of its date; at any moment, use the latest Snapshot dated on or before that UTC day. A manual Snapshot replaces an automatic one for the same date, and an automatic save never replaces a manual one. The history starts in August 2020 and comes from SEC EDGAR (8-K "as of" BTC statements, 10-Q / 10-K cover pages for shares), stored on the post-split share scale.
+A dated Strategy treasury observation: BTC held and Basic Shares Outstanding (actual class A + class B common shares, not diluted), tagged automatic or manual. It applies from 00:00 UTC of its date; at any moment, use the latest Snapshot dated on or before that UTC day. A manual Snapshot replaces an automatic one for the same date, and an automatic save never replaces a manual one. The history starts in August 2020 and comes from SEC EDGAR (8-K "as of" BTC statements, 10-Q / 10-K cover pages for shares), stored on the post-split share scale. After the seed, new automatic Snapshots are added by the SEC EDGAR reader, at most once every 6 hours.
 
 **Strategy Premium**:
 `(MSTR close × basic shares) ÷ (BTC held × BTC close) − 1`, shown as a percentage (`50` means +50%; a change between two points is a difference in percentage points), using the Snapshot in effect at the candle. Debt and preferred shares are excluded. Candles before the first Snapshot have no value.

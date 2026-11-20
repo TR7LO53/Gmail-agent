@@ -3,10 +3,9 @@ import {
   findAggregateBtc,
   findCoverShares,
   htmlToText,
-  joinSnapshots,
-  mergeBtcRows,
   toPostSplitShares,
-} from "../../src/scripts/build-holdings-history.js";
+} from "../../src/markets/edgar-parse.js";
+import { joinSnapshots, mergeBtcRows } from "../../src/scripts/build-holdings-history.js";
 
 // Snippets are shortened copies of real Strategy filings on SEC EDGAR.
 describe("EDGAR parsing for the holdings history script", () => {

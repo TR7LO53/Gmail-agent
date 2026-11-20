@@ -1,0 +1,2 @@
+# Recorded server responses must stay byte for byte as received (no autocrlf conversion).
+gmail-agent/tests/fixtures/markets/sec/** -text
