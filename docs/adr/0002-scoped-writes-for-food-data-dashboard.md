@@ -9,3 +9,7 @@ No new auth was added to guard the new write endpoints — the server already bi
 ## Amendment (2026-10-16): AI News settings
 
 The dashboard may also write the AI News settings: the sender list (`news_senders`) and the interests text (one `meta` row). These are the user's own configuration, not agent output, so the reasoning above does not apply to them. `news_summaries` stays read-only in the dashboard, since the news agent writes it. Like food edits, every settings write is logged to `logs` with source `manual-edit`.
+
+## Amendment (2026-11-20): Holdings Snapshots
+
+Markets storage may write Strategy Holdings Snapshots (`holdings_snapshots`). A manual write replaces the Snapshot for that date and is logged to `logs` with source `manual-edit` (values before and after); an automatic write never replaces a manual Snapshot. An automatic reading that fails the sanity check (BTC held lower than the latest Snapshot, or more than 10% higher) is not saved: it is kept as a pending warning in `meta` (`markets_holdings_warning`) and logged as a `markets` warning. The one-time history seed, loaded by `openDb` only into an empty table, writes to `holdings_snapshots` alone. This permission covers `holdings_snapshots` and that warning row; other agent data stays outside the dashboard's write scope.

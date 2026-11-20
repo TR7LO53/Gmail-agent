@@ -1,0 +1,4 @@
+# Recorded server responses must stay byte for byte as received (no autocrlf conversion).
+gmail-agent/tests/fixtures/markets/sec/** -text
+# Vendored third-party library (TradingView Lightweight Charts): keep it byte for byte.
+gmail-agent/src/ui/public/vendor/** -text
