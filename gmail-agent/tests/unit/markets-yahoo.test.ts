@@ -18,17 +18,14 @@ const syntheticPayload = {
 };
 
 describe("Yahoo chart adapter", () => {
-  it("maps timeframes and encodes futures symbols without a 4h interval", () => {
-    expect(new URL(buildYahooUrl("GC=F", "H4")).pathname).toContain("GC%3DF");
-    expect(new URL(buildYahooUrl("GC=F", "H4")).searchParams.get("interval")).toBe("1h");
-    expect(new URL(buildYahooUrl("BTC-USD", "W1")).searchParams.get("interval")).toBe("1wk");
-    expect(new URL(buildYahooUrl("SI=F", "MN")).searchParams.get("interval")).toBe("1mo");
-  });
-
-  it("asks for ranges that keep D1 and W1 bars daily and weekly", () => {
-    const range = (timeframe: Parameters<typeof buildYahooUrl>[1]) =>
-      new URL(buildYahooUrl("MSTR", timeframe)).searchParams.get("range");
-    expect([range("H1"), range("H4"), range("D1"), range("W1"), range("MN")]).toEqual(["730d", "730d", "20y", "50y", "max"]);
+  it("encodes futures symbols and fetches only hourly and daily bars, with ranges that keep them", () => {
+    expect(new URL(buildYahooUrl("GC=F", "H1")).pathname).toContain("GC%3DF");
+    const params = (timeframe: Parameters<typeof buildYahooUrl>[1]) => {
+      const { searchParams } = new URL(buildYahooUrl("MSTR", timeframe));
+      return [searchParams.get("interval"), searchParams.get("range")];
+    };
+    expect(params("H1")).toEqual(["1h", "730d"]);
+    expect(params("D1")).toEqual(["1d", "30y"]);
   });
 
   it("parses a recorded daily Yahoo response into ordered daily candles and a previous-day quote", () => {
@@ -45,7 +42,7 @@ describe("Yahoo chart adapter", () => {
   it("rejects a recorded response where Yahoo downgraded 1d to monthly bars", () => {
     const payload = recorded("btc-usd-1d-range-max-downgraded");
     expect(() => parseYahooChart(payload, "1d")).toThrow(/1mo bars instead of 1d/);
-    expect(() => parseYahooChart(payload, "1mo")).not.toThrow();
+    expect(() => parseYahooChart(payload)).not.toThrow();
   });
 
   it("reports a downgraded response as a protocol error instead of a wrong chart", async () => {
@@ -55,6 +52,31 @@ describe("Yahoo chart adapter", () => {
     const result = await source.getCandles("BTC-USD", "D1");
     expect(result).toMatchObject({ ok: false, error: { category: "protocol" } });
     expect(logger).toHaveBeenCalledTimes(1);
+  });
+
+  it("folds Yahoo's appended latest-trade point into the current hour (recorded BTC-USD 1h)", async () => {
+    const payload = JSON.stringify(recorded("btc-usd-1h-1d"));
+    const source = createPriceSource({ fetchImpl: async () => new Response(payload, { status: 200 }), logger: vi.fn() });
+    const result = await source.getCandles("BTC-USD", "H1");
+    if (!result.ok) throw new Error(result.error.message);
+    const stamps = result.value.candles.map(({ time }) => new Date(time * 1000).toISOString().slice(0, 16));
+    expect(stamps.at(-1)).toBe("2026-11-20T14:00");
+    expect(stamps.every((stamp) => stamp.endsWith(":00"))).toBe(true);
+    expect(result.value.candles.at(-1)).toMatchObject({ open: 61812.171875, close: 61868.94921875 });
+  });
+
+  it("builds the current month from daily bars, not Yahoo's one-day monthly bar (recorded GC=F 1d)", async () => {
+    const payload = JSON.stringify(recorded("gc-f-1d-2mo"));
+    const source = createPriceSource({ fetchImpl: async () => new Response(payload, { status: 200 }), logger: vi.fn() });
+    const month = await source.getCandles("GC=F", "MN");
+    const week = await source.getCandles("GC=F", "W1");
+    if (!month.ok || !week.ok) throw new Error("expected candles");
+    const november = month.value.candles.at(-1)!;
+    expect(new Date(november.time * 1000).toISOString().slice(0, 10)).toBe("2026-11-02");
+    expect(november).toMatchObject({ open: 3890, close: 3567.60009765625 });
+    const thisWeek = week.value.candles.at(-1)!;
+    expect(new Date(thisWeek.time * 1000).toISOString().slice(0, 10)).toBe("2026-11-16");
+    expect(thisWeek.close).toBe(3567.60009765625);
   });
 
   it("parses a synthetic Yahoo-shaped response, preserves indices, sorts and resolves duplicates", () => {

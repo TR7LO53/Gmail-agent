@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { aggregateH1ToH4, alignRatio, markLiveCandles, quoteFromDailyCandles } from "../../src/markets/series.js";
+import { aggregateDailyByLocalPeriod, aggregateH1ToH4, alignRatio, foldHourlyLatestTrade, markLiveCandles, quoteFromDailyCandles } from "../../src/markets/series.js";
 import type { Candle } from "../../src/markets/types.js";
 import type { YahooMetadata } from "../../src/markets/yahoo.js";
 
@@ -12,6 +12,33 @@ describe("market derived series", () => {
       { time: 0, open: 10, high: 16, low: 9, close: 15, isLive: false },
       { time: 14400, open: 20, high: 21, low: 19, close: 20.5, isLive: false },
     ]);
+  });
+
+  it("folds a latest-trade point into the hour it falls in, keeping :30 equity bar starts", () => {
+    const at = (h: number, m: number) => Date.UTC(2026, 10, 19, h, m) / 1000;
+    const folded = foldHourlyLatestTrade([candle(at(14, 30), 10, 12, 9, 11), candle(at(15, 30), 11, 13, 10, 12), candle(at(15, 47), 12, 20, 12, 18)]);
+    expect(folded).toEqual([
+      { time: at(14, 30), open: 10, high: 12, low: 9, close: 11, isLive: false },
+      { time: at(15, 30), open: 11, high: 20, low: 10, close: 18, isLive: false },
+    ]);
+  });
+
+  it("groups daily candles into exchange-local Monday weeks and months, across DST", () => {
+    // New York equity bars open at 09:30 local: 13:30 UTC before the 2026-11-01 DST end, 14:30 UTC after it.
+    const ny = "America/New_York";
+    const fri = Date.UTC(2026, 9, 30, 13, 30) / 1000;   // Fri 30 Oct, 09:30 EDT
+    const mon = Date.UTC(2026, 10, 2, 14, 30) / 1000;   // Mon 2 Nov, 09:30 EST — 3 days + 1 h later
+    const tue = Date.UTC(2026, 10, 3, 14, 30) / 1000;
+    const daily = [candle(fri, 10, 11, 9, 10.5), candle(mon, 20, 25, 19, 21), candle(tue, 21, 22, 15, 16)];
+    expect(aggregateDailyByLocalPeriod(daily, "W1", ny)).toEqual([
+      { time: fri, open: 10, high: 11, low: 9, close: 10.5, isLive: false },
+      { time: mon, open: 20, high: 25, low: 15, close: 16, isLive: false },
+    ]);
+    expect(aggregateDailyByLocalPeriod(daily, "MN", ny).map(({ time, open, close }) => [time, open, close])).toEqual([[fri, 10, 10.5], [mon, 20, 16]]);
+    // A latest-trade point later on the same local day is folded into that day.
+    const sameDay = Date.UTC(2026, 10, 3, 20, 59) / 1000;
+    expect(aggregateDailyByLocalPeriod([...daily, candle(sameDay, 16, 17, 14, 14.5)], "D1", ny).at(-1))
+      .toEqual({ time: tue, open: 21, high: 22, low: 14, close: 14.5, isLive: false });
   });
 
   it("marks only the newest candle live when its interval contains now", () => {

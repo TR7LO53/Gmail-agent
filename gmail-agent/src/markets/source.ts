@@ -1,6 +1,6 @@
 import { INSTRUMENTS, type Candle, type CandleSeries, type Instrument, type LineSeries, type MarketError, type MarketLogger, type PriceSource, type Quote, type Result, type Timeframe } from "./types.js";
-import { aggregateH1ToH4, alignRatio, markLiveCandles, quoteFromDailyCandles } from "./series.js";
-import { fetchYahooChart, type FetchImpl, type YahooChart, YahooError } from "./yahoo.js";
+import { aggregateDailyByLocalPeriod, aggregateH1ToH4, alignRatio, foldHourlyLatestTrade, markLiveCandles, quoteFromDailyCandles } from "./series.js";
+import { fetchYahooChart, type FetchImpl, type UpstreamTimeframe, type YahooChart, YahooError } from "./yahoo.js";
 
 const DEFAULT_TTL_MS = 270_000;
 interface CachedChart extends YahooChart { fetchedAt: number; expiresAt: number }
@@ -11,8 +11,23 @@ export interface MarketSourceOptions {
   logger: MarketLogger;
 }
 
-function rawTimeframe(timeframe: Timeframe): Timeframe { return timeframe === "H4" ? "H1" : timeframe; }
+function upstreamFor(timeframe: Timeframe): UpstreamTimeframe {
+  return timeframe === "H1" || timeframe === "H4" ? "H1" : "D1";
+}
 function cloneCandles(candles: readonly Candle[]): Candle[] { return candles.map((candle) => ({ ...candle })); }
+
+/** Folds Yahoo's appended latest-trade point into the hour or exchange-local day it belongs to. */
+function normalize(chart: YahooChart, upstream: UpstreamTimeframe): Candle[] {
+  return upstream === "H1"
+    ? foldHourlyLatestTrade(chart.candles)
+    : aggregateDailyByLocalPeriod(chart.candles, "D1", chart.metadata.exchangeTimezoneName);
+}
+
+function deriveFrom(upstreamCandles: Candle[], timeframe: Timeframe, timeZone: string): Candle[] {
+  if (timeframe === "H4") return aggregateH1ToH4(upstreamCandles);
+  if (timeframe === "W1" || timeframe === "MN") return aggregateDailyByLocalPeriod(upstreamCandles, timeframe, timeZone);
+  return upstreamCandles;
+}
 
 export function createPriceSource(options: MarketSourceOptions): PriceSource {
   const fetchImpl = options.fetchImpl ?? fetch;
@@ -26,7 +41,7 @@ export function createPriceSource(options: MarketSourceOptions): PriceSource {
   }
 
   async function load(symbol: Instrument, timeframe: Timeframe): Promise<Result<CachedChart>> {
-    const upstream = rawTimeframe(timeframe);
+    const upstream = upstreamFor(timeframe);
     const key = `${symbol}:${upstream}`;
     const hit = cache.get(key);
     if (hit && now() < hit.expiresAt) return { ok: true, value: hit };
@@ -37,7 +52,7 @@ export function createPriceSource(options: MarketSourceOptions): PriceSource {
       try {
         const chart = await fetchYahooChart(fetchImpl, symbol, upstream);
         const fetchedAt = now();
-        const value = { ...chart, candles: cloneCandles(chart.candles), fetchedAt, expiresAt: fetchedAt + ttlMs };
+        const value = { ...chart, candles: normalize(chart, upstream), fetchedAt, expiresAt: fetchedAt + ttlMs };
         cache.set(key, value);
         return { ok: true, value };
       } catch (cause) {
@@ -59,8 +74,7 @@ export function createPriceSource(options: MarketSourceOptions): PriceSource {
     const loaded = await load(symbol, timeframe);
     if (!loaded.ok) return loaded;
     const { value } = loaded;
-    const raw = cloneCandles(value.candles);
-    const prepared = timeframe === "H4" ? aggregateH1ToH4(raw) : raw;
+    const prepared = deriveFrom(cloneCandles(value.candles), timeframe, value.metadata.exchangeTimezoneName);
     const candles = markLiveCandles(prepared, timeframe, now(), value.metadata, symbol === "BTC-USD");
     return { ok: true, value: { symbol, timeframe, candles, fetchedAt: value.fetchedAt } };
   }

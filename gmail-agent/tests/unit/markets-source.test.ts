@@ -25,7 +25,7 @@ describe("price source cache and isolation", () => {
     expect(fetchImpl).toHaveBeenCalledTimes(2);
   });
 
-  it("shares H1/H4 and D1/quote inputs, and reports one symbol failure independently", async () => {
+  it("shares H1/H4 and D1/W1/MN/quote inputs, and reports one symbol failure independently", async () => {
     const fetchImpl = vi.fn(async (input: string | URL) => String(input).includes("MSTR")
       ? new Response("", { status: 503 }) : response(input));
     const logger = vi.fn();
@@ -33,7 +33,10 @@ describe("price source cache and isolation", () => {
     const [h1, h4] = await Promise.all([source.getCandles("BTC-USD", "H1"), source.getCandles("BTC-USD", "H4")]);
     expect(h1.ok && h4.ok).toBe(true);
     await source.getCandles("BTC-USD", "D1"); await source.getQuote("BTC-USD");
+    const [w1, mn] = await Promise.all([source.getCandles("BTC-USD", "W1"), source.getCandles("BTC-USD", "MN")]);
+    expect(w1.ok && mn.ok).toBe(true);
     expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(fetchImpl.mock.calls.map(([url]) => new URL(String(url)).searchParams.get("interval"))).toEqual(["1h", "1d"]);
     const many = await source.getMany(["BTC-USD", "MSTR", "CCJ"], "D1");
     expect(many["BTC-USD"]?.ok).toBe(true);
     expect(many.MSTR?.ok).toBe(false);

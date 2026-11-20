@@ -1,4 +1,4 @@
-import type { Candle, Instrument, Timeframe, MarketErrorCategory } from "./types.js";
+import type { Candle, Instrument, MarketErrorCategory } from "./types.js";
 
 export interface YahooMetadata {
   exchangeTimezoneName: string;
@@ -17,25 +17,23 @@ export class YahooError extends Error {
   }
 }
 
-type YahooInterval = "1h" | "1d" | "1wk" | "1mo";
+/**
+ * The only Timeframes fetched from Yahoo. H4 is built from H1, and W1/MN from D1,
+ * because Yahoo's own 1wk/1mo bars split or replace the current period
+ * (checked 2026-11-20).
+ */
+export type UpstreamTimeframe = "H1" | "D1";
+type YahooInterval = "1h" | "1d";
 
-const intervalFor: Record<Exclude<Timeframe, "H4">, YahooInterval> = {
-  H1: "1h", D1: "1d", W1: "1wk", MN: "1mo",
-};
+const intervalFor: Record<UpstreamTimeframe, YahooInterval> = { H1: "1h", D1: "1d" };
 
-// Yahoo silently downgrades 1d and 1wk to monthly bars when asked for range=max
-// (checked 2026-11-20 on all five Instruments), so those use the longest range
-// that still keeps the requested interval. Intraday history is capped at ~2 years.
-const rangeFor: Record<YahooInterval, string> = {
-  "1h": "730d", "1d": "20y", "1wk": "50y", "1mo": "max",
-};
+// Yahoo silently downgrades 1d to monthly bars when asked for range=max (checked
+// 2026-11-20 on all five Instruments); 30y still returns daily bars and reaches back
+// to each Instrument's first listing. Intraday history is capped at ~2 years.
+const rangeFor: Record<YahooInterval, string> = { "1h": "730d", "1d": "30y" };
 
-export function yahooIntervalFor(timeframe: Timeframe): YahooInterval {
-  return timeframe === "H4" ? "1h" : intervalFor[timeframe];
-}
-
-export function buildYahooUrl(symbol: Instrument, timeframe: Timeframe): string {
-  const interval = yahooIntervalFor(timeframe);
+export function buildYahooUrl(symbol: Instrument, timeframe: UpstreamTimeframe): string {
+  const interval = intervalFor[timeframe];
   const url = new URL(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}`);
   url.searchParams.set("range", rangeFor[interval]);
   url.searchParams.set("interval", interval);
@@ -99,7 +97,7 @@ export function parseYahooChart(payload: unknown, expectedInterval?: YahooInterv
 
 export type FetchImpl = (input: string | URL, init?: RequestInit) => Promise<Response>;
 
-export async function fetchYahooChart(fetchImpl: FetchImpl, symbol: Instrument, timeframe: Timeframe): Promise<YahooChart> {
+export async function fetchYahooChart(fetchImpl: FetchImpl, symbol: Instrument, timeframe: UpstreamTimeframe): Promise<YahooChart> {
   const url = buildYahooUrl(symbol, timeframe);
   let response: Response;
   try {
@@ -114,5 +112,5 @@ export async function fetchYahooChart(fetchImpl: FetchImpl, symbol: Instrument, 
   let payload: unknown;
   try { payload = await response.json(); }
   catch { throw new YahooError("protocol", "Yahoo returned invalid JSON."); }
-  return parseYahooChart(payload, yahooIntervalFor(timeframe));
+  return parseYahooChart(payload, intervalFor[timeframe]);
 }

@@ -2,27 +2,46 @@ import type { Candle, LinePoint, Quote, Timeframe } from "./types.js";
 import type { YahooMetadata } from "./yahoo.js";
 
 const HOUR = 3600;
+const H4_SECONDS = 4 * HOUR;
+
+/** One candle spanning `group` (sorted by time), stamped at `time`. */
+function combine(time: number, group: readonly Candle[]): Candle {
+  return {
+    time,
+    open: group[0].open,
+    high: Math.max(...group.map((c) => c.high)),
+    low: Math.min(...group.map((c) => c.low)),
+    close: group[group.length - 1].close,
+    isLive: group.some((c) => c.isLive),
+  };
+}
 
 /** H4 candles use fixed UTC buckets beginning at 00:00, 04:00, 08:00, and so on. */
 export function aggregateH1ToH4(candles: readonly Candle[]): Candle[] {
   const groups = new Map<number, Candle[]>();
   for (const candle of candles) {
-    const bucket = Math.floor(candle.time / (4 * HOUR)) * 4 * HOUR;
+    const bucket = Math.floor(candle.time / H4_SECONDS) * H4_SECONDS;
     const group = groups.get(bucket) ?? [];
     group.push(candle);
     groups.set(bucket, group);
   }
-  return [...groups.entries()].sort(([a], [b]) => a - b).map(([time, unsorted]) => {
-    const group = [...unsorted].sort((a, b) => a.time - b.time);
-    return {
-      time,
-      open: group[0].open,
-      high: Math.max(...group.map((c) => c.high)),
-      low: Math.min(...group.map((c) => c.low)),
-      close: group[group.length - 1].close,
-      isLive: group.some((c) => c.isLive),
-    };
-  });
+  return [...groups.entries()].sort(([a], [b]) => a - b)
+    .map(([time, group]) => combine(time, [...group].sort((a, b) => a.time - b.time)));
+}
+
+/**
+ * Yahoo appends a "latest trade" point after the last hourly bar, stamped minutes into
+ * the same hour. Fold any candle that starts less than an hour after the previous one
+ * into it, keeping the previous candle's start (equity H1 bars start at :30).
+ */
+export function foldHourlyLatestTrade(candles: readonly Candle[]): Candle[] {
+  const result: Candle[] = [];
+  for (const candle of candles) {
+    const previous = result[result.length - 1];
+    if (previous && candle.time < previous.time + HOUR) result[result.length - 1] = combine(previous.time, [previous, candle]);
+    else result.push(candle);
+  }
+  return result;
 }
 
 function localParts(epochSeconds: number, timeZone: string): Record<string, string> {
@@ -31,22 +50,39 @@ function localParts(epochSeconds: number, timeZone: string): Record<string, stri
   }).formatToParts(new Date(epochSeconds * 1000)).map((part) => [part.type, part.value]));
 }
 
-function sameLocalDate(a: number, b: number, timeZone: string): boolean {
-  const x = localParts(a, timeZone); const y = localParts(b, timeZone);
-  return x.year === y.year && x.month === y.month && x.day === y.day;
+type CalendarTimeframe = "D1" | "W1" | "MN";
+
+/** The exchange-local day, Monday-started week, or month an instant falls in, as a comparable key. */
+function localPeriodKey(epochSeconds: number, timeframe: CalendarTimeframe, timeZone: string): string {
+  const { year, month, day } = localParts(epochSeconds, timeZone);
+  if (timeframe === "MN") return `${year}-${month}`;
+  if (timeframe === "D1") return `${year}-${month}-${day}`;
+  const monday = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day)));
+  monday.setUTCDate(monday.getUTCDate() - ((monday.getUTCDay() + 6) % 7));
+  return monday.toISOString().slice(0, 10);
 }
 
-function sameLocalPeriod(candleTime: number, now: number, timeframe: Timeframe, timeZone: string): boolean {
-  const c = localParts(candleTime, timeZone); const n = localParts(now, timeZone);
-  if (timeframe === "W1") {
-    const date = new Date(Date.UTC(Number(c.year), Number(c.month) - 1, Number(c.day)));
-    const weekday = date.getUTCDay();
-    date.setUTCDate(date.getUTCDate() - ((weekday + 6) % 7));
-    const nd = new Date(Date.UTC(Number(n.year), Number(n.month) - 1, Number(n.day)));
-    const nw = nd.getUTCDay(); nd.setUTCDate(nd.getUTCDate() - ((nw + 6) % 7));
-    return date.getTime() === nd.getTime();
+/**
+ * Groups daily candles into exchange-local days, weeks or months. Each candle is stamped
+ * at its first daily candle. For D1 this folds Yahoo's appended latest-trade point into
+ * its day; W1 and MN are always built this way because Yahoo's own weekly and monthly
+ * bars split or replace the current period.
+ */
+export function aggregateDailyByLocalPeriod(
+  candles: readonly Candle[], timeframe: CalendarTimeframe, timeZone: string,
+): Candle[] {
+  const groups = new Map<string, Candle[]>();
+  for (const candle of [...candles].sort((a, b) => a.time - b.time)) {
+    const key = localPeriodKey(candle.time, timeframe, timeZone);
+    const group = groups.get(key) ?? [];
+    group.push(candle);
+    groups.set(key, group);
   }
-  return c.year === n.year && c.month === n.month;
+  return [...groups.values()].map((group) => combine(group[0].time, group));
+}
+
+function sameLocalPeriod(a: number, b: number, timeframe: CalendarTimeframe, timeZone: string): boolean {
+  return localPeriodKey(a, timeframe, timeZone) === localPeriodKey(b, timeframe, timeZone);
 }
 
 export function markLiveCandles(
@@ -62,10 +98,8 @@ export function markLiveCandles(
   let isLive = false;
   if (withinSession) {
     if (timeframe === "H1" || timeframe === "H4") {
-      const seconds = timeframe === "H1" ? HOUR : 4 * HOUR;
+      const seconds = timeframe === "H1" ? HOUR : H4_SECONDS;
       isLive = now >= last.time && now < last.time + seconds;
-    } else if (timeframe === "D1") {
-      isLive = sameLocalDate(last.time, now, metadata.exchangeTimezoneName);
     } else {
       isLive = sameLocalPeriod(last.time, now, timeframe, metadata.exchangeTimezoneName);
     }
