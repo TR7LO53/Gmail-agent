@@ -1,5 +1,12 @@
 # Yahoo chart fixtures
 
-There is no recorded Yahoo response in this checkout. The public chart endpoint could not be reached during implementation (2026-11-20), so the adjacent unit tests use explicitly constructed synthetic payloads and do not claim to verify a real Yahoo recording.
+Unmodified responses from Yahoo's public chart endpoint, used by `tests/unit/markets-yahoo.test.ts`. No redactions. Retrieved 2026-11-20 (UTC) with `User-Agent: Mozilla/5.0`.
 
-When Yahoo is reachable, save the unmodified response JSON here and add a manifest entry with UTC retrieval time, symbol, interval, range/period, full source URL, and any redactions. Do not label synthetic samples as recordings.
+| File | Symbol | Interval | Range | Granularity returned | Source URL |
+|---|---|---|---|---|---|
+| `mstr-1d-5d.json` | MSTR | 1d | 5d | 1d (5 bars) | `https://query1.finance.yahoo.com/v8/finance/chart/MSTR?range=5d&interval=1d` |
+| `btc-usd-1d-range-max-downgraded.json` | BTC-USD | 1d | max | **1mo** (147 bars) | `https://query1.finance.yahoo.com/v8/finance/chart/BTC-USD?range=max&interval=1d` |
+
+The second file records why `yahoo.ts` never asks for `range=max` with `1d` or `1wk`: Yahoo silently returns monthly bars instead.
+
+Older tests in this folder's neighbours still use explicitly constructed synthetic payloads; do not label synthetic samples as recordings. When adding a recording, add a row above with the retrieval date, symbol, interval, range and full URL.

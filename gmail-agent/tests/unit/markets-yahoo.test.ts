@@ -1,5 +1,13 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
+import { quoteFromDailyCandles } from "../../src/markets/series.js";
+import { createPriceSource } from "../../src/markets/source.js";
 import { buildYahooUrl, fetchYahooChart, parseYahooChart, YahooError } from "../../src/markets/yahoo.js";
+
+/** Unmodified Yahoo responses — see tests/fixtures/markets/yahoo/README.md. */
+function recorded(name: string): unknown {
+  return JSON.parse(readFileSync(new URL(`../fixtures/markets/yahoo/${name}.json`, import.meta.url), "utf8"));
+}
 
 const syntheticPayload = {
   chart: { result: [{
@@ -15,6 +23,38 @@ describe("Yahoo chart adapter", () => {
     expect(new URL(buildYahooUrl("GC=F", "H4")).searchParams.get("interval")).toBe("1h");
     expect(new URL(buildYahooUrl("BTC-USD", "W1")).searchParams.get("interval")).toBe("1wk");
     expect(new URL(buildYahooUrl("SI=F", "MN")).searchParams.get("interval")).toBe("1mo");
+  });
+
+  it("asks for ranges that keep D1 and W1 bars daily and weekly", () => {
+    const range = (timeframe: Parameters<typeof buildYahooUrl>[1]) =>
+      new URL(buildYahooUrl("MSTR", timeframe)).searchParams.get("range");
+    expect([range("H1"), range("H4"), range("D1"), range("W1"), range("MN")]).toEqual(["730d", "730d", "20y", "50y", "max"]);
+  });
+
+  it("parses a recorded daily Yahoo response into ordered daily candles and a previous-day quote", () => {
+    const { candles, metadata } = parseYahooChart(recorded("mstr-1d-5d"), "1d");
+    expect(candles).toHaveLength(5);
+    const days = candles.map(({ time }) => new Date(time * 1000).toISOString().slice(0, 10));
+    expect(new Set(days).size).toBe(5);
+    expect(days).toEqual([...days].sort());
+    const quote = quoteFromDailyCandles("MSTR", candles, 1, metadata.exchangeTimezoneName);
+    expect(quote.previousClose).toBe(candles[3].close);
+    expect(quote.current).toBe(candles[4].close);
+  });
+
+  it("rejects a recorded response where Yahoo downgraded 1d to monthly bars", () => {
+    const payload = recorded("btc-usd-1d-range-max-downgraded");
+    expect(() => parseYahooChart(payload, "1d")).toThrow(/1mo bars instead of 1d/);
+    expect(() => parseYahooChart(payload, "1mo")).not.toThrow();
+  });
+
+  it("reports a downgraded response as a protocol error instead of a wrong chart", async () => {
+    const payload = JSON.stringify(recorded("btc-usd-1d-range-max-downgraded"));
+    const logger = vi.fn();
+    const source = createPriceSource({ fetchImpl: async () => new Response(payload, { status: 200 }), logger });
+    const result = await source.getCandles("BTC-USD", "D1");
+    expect(result).toMatchObject({ ok: false, error: { category: "protocol" } });
+    expect(logger).toHaveBeenCalledTimes(1);
   });
 
   it("parses a synthetic Yahoo-shaped response, preserves indices, sorts and resolves duplicates", () => {
