@@ -38,6 +38,12 @@ Read-only total macros for yesterday — the most recently completed calendar da
 **Last Week Average**:
 Read-only average of daily total macros over the last 7 calendar days, including today.
 
+### Markets
+
+**Holdings Snapshot**: A dated Strategy treasury observation containing BTC held and Basic Shares Outstanding (actual Class A + Class B common shares), tagged automatic or manual. It applies from 00:00 UTC on its date; at a moment, use the latest snapshot on or before that UTC date. A manual snapshot replaces an automatic snapshot for that date.
+
+**Strategy Premium**: The fractional ratio `(MSTR close × basic shares) / (BTC held × BTC close) − 1`, using the snapshot in effect at the candle close. A value of `0.5` means 50%; debt and preferred shares are excluded. Historical MSTR prices and shares use the same split-adjusted basis.
+
 ### Android food app
 
 **Pantry**:

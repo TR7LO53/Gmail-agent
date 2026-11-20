@@ -9,3 +9,7 @@ No new auth was added to guard the new write endpoints — the server already bi
 ## Amendment (2026-10-16): AI News settings
 
 The dashboard may also write the AI News settings: the sender list (`news_senders`) and the interests text (one `meta` row). These are the user's own configuration, not agent output, so the reasoning above does not apply to them. `news_summaries` stays read-only in the dashboard, since the news agent writes it. Like food edits, every settings write is logged to `logs` with source `manual-edit`.
+
+## Amendment (2026-11-20): Holdings Snapshots
+
+Markets storage may write Strategy Holdings Snapshots. Manual writes replace the snapshot for that date and are recorded once in `logs` with source `manual-edit`; automatic writes never replace a manual snapshot. Rejected automatic readings are retained as a pending warning and a `markets` warning log. This permission is limited to `holdings_snapshots` and its warning metadata; unrelated agent data remains outside the dashboard's write scope.

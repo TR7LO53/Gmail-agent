@@ -15,7 +15,8 @@ export type LogSource =
   | "news"
   | "inbox"
   | "summary"
-  | "manual-edit";
+  | "manual-edit"
+  | "markets";
 
 export interface LogEntry {
   id: number;
