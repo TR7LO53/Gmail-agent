@@ -5,6 +5,7 @@ import { openDb } from "./memory/db.js";
 import { openaiProvider } from "./llm/provider.js";
 import { usdaProvider } from "./nutrition/provider.js";
 import { openaiTranscriber } from "./llm/transcribe.js";
+import { createMarketsDeps } from "./markets/deps.js";
 import { createApp } from "./ui/app.js";
 import { SseBroadcaster, getDashboardSignature } from "./ui/sse.js";
 import { startHeartbeat } from "./core/heartbeat.js";
@@ -30,7 +31,7 @@ function openBrowser(url: string): void {
   exec(cmd, () => {}); // best-effort; ignore errors (user can open the URL manually)
 }
 
-logEnvStatus(["DISCORD_BOT_TOKEN", "DISCORD_ALLOWED_USER_ID", "USDA_API_KEY", "OPENAI_API_KEY"]);
+logEnvStatus(["DISCORD_BOT_TOKEN", "DISCORD_ALLOWED_USER_ID", "USDA_API_KEY", "OPENAI_API_KEY", "SEC_USER_AGENT"]);
 
 // Gmail setup, once, at startup. If the token is missing or expired this opens a browser to log in
 // BEFORE anything runs — so Ggent reconnects itself instead of silently running on a dead token.
@@ -48,7 +49,7 @@ try {
 
 const db = openDb();
 const broadcaster = new SseBroadcaster();
-const app = createApp({ db, broadcaster });
+const app = createApp({ db, broadcaster, markets: createMarketsDeps(db) });
 
 // Dashboard change-poller: push an SSE `update` whenever the heartbeat writes new data.
 let lastSignature = getDashboardSignature(db);

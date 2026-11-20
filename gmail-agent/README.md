@@ -69,11 +69,22 @@ E2E_TEST_SENDER="noreply@dhl.com" npm run test:e2e
 
 ## Markets: Strategy holdings
 
-The Premium chart needs Strategy's BTC held and share count. The history (August 2020 onwards) ships with the app; `src/markets/holdings-reader.ts` adds new weekly readings straight from SEC EDGAR: BTC held from the weekly 8-K, shares from the cover page of the latest 10-Q / 10-K. It is meant to run when the Markets tab is opened (the route that calls it is a separate ticket) and runs at most once every 6 hours, reads one document at a time, and a failed run saves nothing and shows an error in Activity.
+The Premium chart needs Strategy's BTC held and share count. The history (August 2020 onwards) ships with the app; `src/markets/holdings-reader.ts` adds new weekly readings straight from SEC EDGAR: BTC held from the weekly 8-K, shares from the cover page of the latest 10-Q / 10-K. It runs when the Markets tab asks for the watchlist (`GET /api/markets/watchlist`), at most once every 6 hours, reads one document at a time, and a failed run saves nothing and shows an error in Activity.
 
 It needs `SEC_USER_AGENT` (an app name and a contact, e.g. `Ggent you@example.com`; see `.env.example`). Without it the Markets tab works as before, but holdings are not updated by themselves and Activity shows a warning. A reading that looks wrong (BTC went down, or up by more than 10%) is not saved; you enter it by hand instead.
 
 To rebuild the whole history from scratch, run `npm run build-holdings-history` (it overwrites `src/markets/data/holdings-history.json`).
+
+### Markets API
+
+| Route | What it returns |
+|---|---|
+| `GET /api/markets/watchlist` | The five entries (Bitcoin, MSTR, CCJ, Gold/Silver Ratio, Strategy Premium) with value, change since the previous daily close, day label and per-entry error. Also starts the holdings check. |
+| `GET /api/markets/series?entry=<id>&tf=<H1\|H4\|D1\|W1\|MN>` | Candles (or line points for the two Derived Series) and the Live Candle flag. `time` is Unix seconds UTC; the UI shows it in `displayTimeZone` (Europe/Warsaw). |
+| `GET /api/markets/holdings` | Latest Snapshot, the "stale" flag and any pending sanity-check warning. |
+| `POST /api/markets/holdings` | A manual Snapshot (`date`, `btc_held`, `shares_outstanding`); logged as `manual-edit`. |
+
+A price source failure is a normal `200` with `ok: false`, `stale: true`, the error and the time of the last success (kept in memory only; prices are never stored). A Derived Series is stale when any of its inputs failed.
 
 ## Layout
 

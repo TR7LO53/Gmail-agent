@@ -62,6 +62,11 @@ function localPeriodKey(epochSeconds: number, timeframe: CalendarTimeframe, time
   return monday.toISOString().slice(0, 10);
 }
 
+/** The calendar day (YYYY-MM-DD) an instant falls in, in the given time zone. */
+export function localDateKey(epochSeconds: number, timeZone: string): string {
+  return localPeriodKey(epochSeconds, "D1", timeZone);
+}
+
 /**
  * Groups daily candles into exchange-local days, weeks or months. Each candle is stamped
  * at its first daily candle. For D1 this folds Yahoo's appended latest-trade point into
@@ -114,7 +119,7 @@ export function quoteFromDailyCandles(
   const previous = candles[candles.length - 2];
   if (!current) return {
     symbol, current: null, currentTime: null, previousClose: null, previousCloseTime: null,
-    change: null, changePercent: null, observationWeekday: null, fetchedAt,
+    change: null, changePercent: null, observationWeekday: null, timeZone, fetchedAt,
     unavailableReason: "Yahoo returned no daily price observations.",
   };
   const weekday = localParts(current.time, timeZone).weekday ?? null;
@@ -129,6 +134,7 @@ export function quoteFromDailyCandles(
     change,
     changePercent,
     observationWeekday: weekday,
+    timeZone,
     fetchedAt,
     ...(!previous ? { unavailableReason: "At least two daily observations are needed to calculate change." } : {}),
     ...(previous?.close === 0 ? { unavailableReason: "Change percent is unavailable because the previous close is zero." } : {}),
