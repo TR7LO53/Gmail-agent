@@ -1,0 +1,10 @@
+{
+  "chart": {
+    "result": [{
+      "meta": { "currency": "USD", "exchangeTimezoneName": "America/New_York", "symbol": "MSTR" },
+      "timestamp": [1795046400, 1795132800, 1795219200, 1795219200],
+      "indicators": { "quote": [{ "open": [100, 102, 105, 105], "high": [103, 106, 108, 108], "low": [99, 101, 104, 104], "close": [102, 105, 107, 107] }] }
+    }],
+    "error": null
+  }
+}

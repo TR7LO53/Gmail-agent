@@ -39,6 +39,11 @@ describe("activity logs", () => {
     expect(listRecentLogs(db, 1)[0].source).toBe("news");
   });
 
+  it("accepts the Markets source", () => {
+    logEvent(db, { source: "markets", message: "MSTR D1 unavailable", level: "error" });
+    expect(listRecentLogs(db, 1)[0].source).toBe("markets");
+  });
+
   it("pruneLogs keeps only the newest N", () => {
     for (let i = 0; i < 10; i++) logEvent(db, { source: "tracker", message: "m" + i });
     pruneLogs(db, 4);

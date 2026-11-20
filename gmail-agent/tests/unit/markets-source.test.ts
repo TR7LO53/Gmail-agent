@@ -1,0 +1,51 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { openDb } from "../../src/memory/db.js";
+import { listRecentLogs } from "../../src/memory/logs.js";
+import { createMarketSource } from "../../src/markets/source.js";
+import fixture from "../fixtures/markets/chart-synthetic.json";
+import type { DB } from "../../src/memory/db.js";
+let db: DB;
+afterEach(() => db?.close());
+const response = { ok: true, status: 200, json: async () => fixture };
+describe("market source cache and isolation", () => {
+  it("shares requests within TTL, expires at TTL, and returns defensive copies", async () => {
+    db = openDb(":memory:");
+    let now = 1_795_046_400_000;
+    const fetch = vi.fn(async () => response);
+    const source = createMarketSource({ db, fetch, now: () => now, ttlMs: 100 });
+    const first = await source.getCandles("MSTR", "D1");
+    expect(first.ok).toBe(true);
+    if (first.ok) first.data.pop();
+    expect((await source.getCandles("MSTR", "D1")).ok && (await source.getCandles("MSTR", "D1") as {ok:true;data:unknown[]}).data.length).toBe(3);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    now += 100;
+    await source.getCandles("MSTR", "D1");
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+  it("isolates per-symbol failures and logs a shared failure once", async () => {
+    db = openDb(":memory:");
+    const fetch = vi.fn(async (url: string) => url.includes("MSTR") ? ({ ok: false, status: 500, json: async () => ({}) }) : response);
+    const source = createMarketSource({ db, fetch: fetch as never, now: () => 1_795_046_400_000 });
+    const results = await source.getCandlesMany(["MSTR", "BTC-USD", "CCJ"], "D1");
+    expect(results.MSTR).toMatchObject({ ok: false });
+    expect(results["BTC-USD"]).toMatchObject({ ok: true });
+    expect(results.CCJ).toMatchObject({ ok: true });
+    expect(listRecentLogs(db, 10).filter(log => log.source === "markets")).toHaveLength(1);
+  });
+  it("recomputes the live flag on a cache hit after the candle closes", async () => {
+    db = openDb(":memory:");
+    let now = 1_795_046_400_000;
+    const hourly = structuredClone(fixture);
+    hourly.chart.result[0].meta.exchangeTimezoneName = "UTC";
+    hourly.chart.result[0].timestamp = [Math.floor(now / 1000)] as never;
+    hourly.chart.result[0].indicators.quote[0] = { open: [100], high: [101], low: [99], close: [100] } as never;
+    const fetch = vi.fn(async () => ({ ok: true, status: 200, json: async () => hourly }));
+    const source = createMarketSource({ db, fetch, now: () => now, ttlMs: 5_000_000 });
+    const before = await source.getCandles("MSTR", "H1");
+    expect(before.ok && before.data[0].isLive).toBe(true);
+    now += 3_600_000;
+    const after = await source.getCandles("MSTR", "H1");
+    expect(after.ok && after.data[0].isLive).toBe(false);
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+});

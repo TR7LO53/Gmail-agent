@@ -13,6 +13,7 @@ export type LogSource =
   | "classifier"
   | "tracker"
   | "news"
+  | "markets"
   | "inbox"
   | "summary"
   | "manual-edit"
