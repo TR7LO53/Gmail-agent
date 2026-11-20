@@ -43,7 +43,7 @@ export interface LinePoint {
 }
 
 export interface LineSeries {
-  name: "gold-silver-ratio";
+  name: "gold-silver-ratio" | "strategy-premium";
   timeframe: Timeframe;
   points: LinePoint[];
   fetchedAt: number;
