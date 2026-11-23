@@ -1,12 +1,13 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import OpenAI from "openai";
 import { openDb } from "../../src/memory/db.js";
 import { getParcel, listActiveParcels } from "../../src/memory/parcels.js";
-import { listDecisions } from "../../src/memory/decisions.js";
+import { listDecisions, recordDecision } from "../../src/memory/decisions.js";
 import { listTodaysEmails, startOfLocalDayIso } from "../../src/memory/emails.js";
 import { getObservation } from "../../src/memory/observations.js";
 import { listRecentLogs } from "../../src/memory/logs.js";
 import { runClassifier } from "../../src/agents/classifier.js";
-import type { LLMProvider } from "../../src/llm/provider.js";
+import { openaiProvider, type LLMProvider } from "../../src/llm/provider.js";
 import type { DB } from "../../src/memory/db.js";
 import { makeFakeGmail } from "../helpers/fake-gmail.js";
 import { b64url } from "../helpers/fake-gmail.js";
@@ -103,6 +104,89 @@ describe("Classifier integration", () => {
 
   beforeEach(() => {
     db = memDb();
+  });
+  afterEach(() => vi.unstubAllEnvs());
+
+  it.each([
+    ["404", () => new OpenAI.NotFoundError(404, { code: "model_not_found", message: "The model has been deprecated" }, undefined, {})],
+    ["401", () => new OpenAI.AuthenticationError(401, { message: "Bad key" }, undefined, {})],
+    ["403", () => new OpenAI.PermissionDeniedError(403, { message: "Access denied" }, undefined, {})],
+    ["429", () => new OpenAI.RateLimitError(429, { code: "insufficient_quota", message: "Quota exceeded" }, undefined, {})],
+    ["connection", () => new OpenAI.APIConnectionError({})],
+    ["timeout", () => new OpenAI.APIConnectionTimeoutError({})],
+  ] as const)("stops after one call on an OpenAI %s error", async (kind, createError) => {
+    vi.stubEnv("OPENAI_MODEL", "classifier-model");
+    const error = createError();
+    const extract = vi.fn(async () => { throw error; });
+    const gmail = makeFakeGmailWithMessages([DHL_EMAIL, NEWSLETTER_EMAIL]);
+
+    const result = await runClassifier({}, { gmail, llm: { extract }, db });
+
+    expect(result).toMatchObject({ success: false, data: { scanned: 1, errors: 1 }, diagnostics: { llm_calls: 1 } });
+    expect(extract).toHaveBeenCalledExactlyOnceWith(expect.anything(), expect.any(String), expect.any(String), {
+      model: "classifier-model", maxRetries: 0,
+    });
+    expect(listDecisions(db)).toEqual([]);
+    const errors = listRecentLogs(db).filter((log) => log.source === "classifier" && log.level === "error");
+    expect(errors).toHaveLength(1);
+    expect(errors[0].message).toContain(error.message);
+    if (kind === "404") {
+      expect(result.recovery).toContain("classifier-model");
+      expect(result.recovery).toContain("OPENAI_MODEL");
+      expect(errors[0].message).toContain("model_not_found");
+    }
+  });
+
+  it("stops on a missing OpenAI key without using an existing email's next attempt", async () => {
+    vi.stubEnv("OPENAI_API_KEY", undefined);
+    const gmail = makeFakeGmailWithMessages([DHL_EMAIL, NEWSLETTER_EMAIL]);
+    recordDecision(db, {
+      timestamp: "2026-07-01T10:00:00.000Z",
+      email_id: DHL_EMAIL.id,
+      action_taken: "skip",
+      outcome: "error",
+    });
+
+    const result = await runClassifier({}, { gmail, llm: openaiProvider, db });
+
+    expect(result).toMatchObject({ success: false, recovery: expect.stringContaining("OPENAI_API_KEY"), diagnostics: { llm_calls: 1 } });
+    expect(listDecisions(db)).toHaveLength(1);
+    expect(listRecentLogs(db).filter((log) => log.level === "error")).toHaveLength(1);
+  });
+
+  it("logs one failed attempt per ID and keeps classifying other mail", async () => {
+    const gmail = makeFakeGmailWithMessages([DHL_EMAIL, DHL_EMAIL, NEWSLETTER_EMAIL]);
+    const llm = makeFakeLLM({ isParcelRelated: false, confidence: 1, reasoning: "Newsletter" });
+    const extract = vi.spyOn(llm, "extract").mockRejectedValueOnce(new Error("Invalid response for DHL"));
+
+    const result = await runClassifier({}, { gmail, llm, db });
+
+    expect(result).toMatchObject({ success: true, data: { scanned: 2, skipped: 1, errors: 1 }, diagnostics: { llm_calls: 2 } });
+    expect(extract).toHaveBeenCalledTimes(2);
+    expect(listDecisions(db)).toHaveLength(2);
+    expect(listDecisions(db)).toContainEqual(expect.objectContaining({ email_id: DHL_EMAIL.id, outcome: "error" }));
+    const errors = listRecentLogs(db).filter((log) => log.source === "classifier" && log.level === "error");
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toMatchObject({
+      message: expect.stringContaining("Invalid response for DHL"),
+      data: { emailId: DHL_EMAIL.id, attempt: 1 },
+    });
+  });
+
+  it("does not read or classify email with a legacy Tracker error decision", async () => {
+    const gmail = makeFakeGmailWithMessages([DHL_EMAIL]);
+    const extract = vi.fn(async () => { throw new Error("Unexpected call"); });
+    recordDecision(db, {
+      timestamp: "2026-07-01T10:00:00.000Z",
+      email_id: DHL_EMAIL.id,
+      action_taken: "update",
+      agent_reasoning: "Tracker error: Connection error.",
+      outcome: "error",
+    });
+    const result = await runClassifier({}, { gmail, llm: { extract }, db });
+    expect(result.data?.deduped).toBe(1);
+    expect(gmail.users.threads.get).not.toHaveBeenCalled();
+    expect(extract).not.toHaveBeenCalled();
   });
 
   it("tracks a parcel from a courier email", async () => {

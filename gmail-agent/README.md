@@ -71,7 +71,9 @@ E2E_TEST_SENDER="noreply@dhl.com" npm run test:e2e
 
 The Premium chart needs Strategy's BTC held and share count. The history (August 2020 onwards) ships with the app; `src/markets/holdings-reader.ts` adds new weekly readings straight from SEC EDGAR: BTC held from the weekly 8-K, shares from the cover page of the latest 10-Q / 10-K. It runs when the Markets tab asks for the watchlist (`GET /api/markets/watchlist`), at most once every 6 hours, reads one document at a time, and a failed run saves nothing and shows an error in Activity.
 
-It needs `SEC_USER_AGENT` (an app name and a contact, e.g. `Ggent you@example.com`; see `.env.example`). Without it the Markets tab works as before, but holdings are not updated by themselves and Activity shows a warning. A reading that looks wrong (BTC went down, or up by more than 10%) is not saved; you enter it by hand instead.
+It needs `SEC_USER_AGENT` (an app name and a contact, e.g. `Ggent you@example.com`; see `.env.example`). Without it the Markets tab works as before, but holdings are not updated by themselves and Activity shows a warning.
+
+The reader saves a drop of up to 5% from the latest Snapshot if the same 8-K reports BTC sales. The sale signal applies to all "as of" dates in the report, including readings from exhibits. Activity shows both BTC counts for an accepted drop. Other drops and rises above 10% trigger a warning. Use the manual form to correct a rejected reading. A manual Snapshot takes precedence on the same date.
 
 To rebuild the whole history from scratch, run `npm run build-holdings-history` (it overwrites `src/markets/data/holdings-history.json`).
 

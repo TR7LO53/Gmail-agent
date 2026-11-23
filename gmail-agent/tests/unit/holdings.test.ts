@@ -21,8 +21,8 @@ describe("holdings snapshots", () => {
   });
   afterEach(() => db.close());
 
-  const save = (date: string, btc_held: number, source: HoldingsSource = "automatic") =>
-    saveHoldingsSnapshot(db, { date, btc_held, shares_outstanding: 1000, source });
+  const save = (date: string, btc_held: number, source: HoldingsSource = "automatic", reportsBtcSales?: boolean) =>
+    saveHoldingsSnapshot(db, { date, btc_held, shares_outstanding: 1000, source, reportsBtcSales });
 
   describe("manual versus automatic", () => {
     it("a manual snapshot replaces an automatic one for the same date", () => {
@@ -40,10 +40,11 @@ describe("holdings snapshots", () => {
     });
 
     it("an automatic save never overwrites a manual one", () => {
-      saveHoldingsSnapshot(db, { date: "2026-01-01", btc_held: 90, shares_outstanding: 1200, source: "manual" });
+      saveHoldingsSnapshot(db, { date: "2026-01-01", btc_held: 100, shares_outstanding: 1200, source: "manual" });
       const before = getLatestHoldingsSnapshot(db);
-      expect(save("2026-01-01", 95).status).toBe("skipped_manual");
+      expect(save("2026-01-01", 99, "automatic", true).status).toBe("skipped_manual");
       expect(getLatestHoldingsSnapshot(db)).toEqual(before);
+      expect(listRecentLogs(db, 10).filter((log) => log.source === "markets")).toHaveLength(0);
     });
 
     it("the latest automatic snapshot ignores newer manual ones", () => {
@@ -77,15 +78,53 @@ describe("holdings snapshots", () => {
   });
 
   describe("sanity check for automatic saves", () => {
-    it("rejects a decrease", () => {
+    it("saves and logs a reported sale against the latest snapshot, including a manual one", () => {
+      save("2026-01-01", 110);
+      save("2026-01-02", 100, "manual");
+      expect(save("2026-01-03", 99, "automatic", true)).toMatchObject({
+        status: "saved",
+        snapshot: { btc_held: 99, source: "automatic" },
+      });
+      expect(listRecentLogs(db, 10).filter((log) => log.source === "markets")).toEqual([
+        expect.objectContaining({
+          level: "info",
+          message: "Accepted BTC decrease for 2026-01-03: 100 BTC → 99 BTC.",
+          data: { date: "2026-01-03", previous_btc_held: 100, btc_held: 99 },
+        }),
+      ]);
+    });
+
+    it("rejects a decrease without a reported sale", () => {
       save("2026-01-01", 100);
       expect(save("2026-01-02", 99)).toMatchObject({ status: "rejected", warning: { reason: "btc_decreased" } });
+      expect(getPendingHoldingsWarning(db)).toMatchObject({ reason: "btc_decreased", date: "2026-01-02" });
       expect(listHoldingsSnapshots(db)).toHaveLength(1);
+    });
+
+    it("rejects a drop just over 5% even with a reported sale", () => {
+      save("2026-01-01", 100);
+      expect(save("2026-01-02", 94.99, "automatic", true)).toMatchObject({
+        status: "rejected",
+        warning: { reason: "btc_decreased" },
+      });
+      expect(listHoldingsSnapshots(db)).toHaveLength(1);
+      expect(listRecentLogs(db, 10).filter((log) => log.source === "markets" && log.level === "info")).toHaveLength(0);
+    });
+
+    it.each([
+      [100, 95],
+      [840000.68, 798000.646],
+    ])("accepts an exact 5%% drop from %s to %s BTC with a reported sale", (previous, current) => {
+      save("2026-01-01", previous);
+      expect(save("2026-01-02", current, "automatic", true)).toMatchObject({
+        status: "saved",
+        snapshot: { btc_held: current },
+      });
     });
 
     it("rejects a rise of 10.1% but accepts exactly 10% and 5%", () => {
       save("2026-01-01", 100);
-      expect(save("2026-01-02", 110.1)).toMatchObject({
+      expect(save("2026-01-02", 110.1, "automatic", true)).toMatchObject({
         status: "rejected",
         warning: { reason: "btc_increased_too_much", previous_btc_held: 100 },
       });

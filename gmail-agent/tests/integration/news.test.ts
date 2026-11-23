@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import OpenAI from "openai";
 import { runNews } from "../../src/agents/news.js";
 import { openDb, type DB } from "../../src/memory/db.js";
 import { addNewsSender, getNewsSummary, setNewsInterests } from "../../src/memory/news.js";
@@ -82,6 +83,16 @@ describe("News agent", () => {
     setNewsInterests(db, "");
     await runNews(f.deps);
     expect(f.extract).toHaveBeenCalledWith(expect.anything(), expect.any(String), expect.stringContaining("empty means no stated interests"), { model: "gpt-6-luna" });
+  });
+
+  it("logs the News model and its setting when OpenAI withdraws the model", async () => {
+    vi.stubEnv("OPENAI_NEWS_MODEL", "news-model-test");
+    const f = setup("x".repeat(300));
+    f.extract.mockRejectedValueOnce(new OpenAI.NotFoundError(404, { code: "model_not_found", message: "Unknown model" }, undefined, {}));
+    await runNews(f.deps);
+    expect(listRecentLogs(db).find((entry) => entry.level === "error")?.message).toContain(
+      "Model news-model-test is unavailable. Change OPENAI_NEWS_MODEL in .env.",
+    );
   });
 
   it("does no Gmail work without active senders", async () => {

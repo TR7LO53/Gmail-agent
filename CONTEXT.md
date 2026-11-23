@@ -69,7 +69,9 @@ How far Strategy's (MSTR) market value sits above or below the value of the Bitc
 _Avoid_: mNAV (Strategy's own mNAV is enterprise-value based and differs), NAV premium
 
 **Holdings Snapshot**:
-A dated record of how much BTC Strategy holds and its Basic Shares Outstanding (actual class A + class B common shares, not diluted), marked as automatic (read from SEC EDGAR filings) or manual (typed in by the user). It applies from 00:00 UTC of its date; at any moment, use the latest Snapshot dated on or before that UTC day. A manual Snapshot always beats an automatic one for the same date; an automatic reading that shows BTC falling, or rising more than 10% at once, is held back as a warning instead of saved. The history starts in August 2020 and comes from SEC EDGAR (8-K "as of" BTC statements, 10-Q / 10-K cover pages for shares), stored on the post-split share scale. After the seed, new automatic Snapshots are added by the SEC EDGAR reader, at most once every 6 hours.
+A dated record of how much BTC Strategy holds and its Basic Shares Outstanding (actual class A + class B common shares, not diluted), marked as automatic (read from SEC EDGAR filings) or manual (typed in by the user). It applies from 00:00 UTC of its date; at any moment, use the latest Snapshot dated on or before that UTC day. The history starts in August 2020 and comes from SEC EDGAR (8-K "as of" BTC statements, 10-Q / 10-K cover pages for shares), stored on the post-split share scale. After the seed, the SEC EDGAR reader checks for new Snapshots at most once every 6 hours.
+
+The reader saves a drop of up to 5% from the latest Snapshot when the same 8-K reports BTC sales. The sale signal applies to every "as of" date in the filing, including readings from exhibits. Activity shows the previous and new BTC counts for each accepted drop. Other drops and rises above 10% leave a warning and stop further saves in that pass. A manual entry can correct a rejected reading and takes precedence over an automatic reading for the same date.
 
 ### Android food app
 

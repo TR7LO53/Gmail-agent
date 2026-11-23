@@ -43,14 +43,38 @@ export function listDecisions(db: DB, limit = 50): Decision[] {
   return rows.map(rowToDecision);
 }
 
-/**
- * Every email id that already has at least one decision logged. This is the cleanest
- * deduplication source for the heartbeat: an email that was already classified should
- * not be re-read or re-sent to the LLM on the next scan.
- */
+export interface EmailDecisionState {
+  classificationErrors: number;
+  lastClassificationError?: string;
+  retryPending: boolean;
+  exhausted: boolean;
+}
+
+export function getEmailDecisionStates(db: DB): Map<string, EmailDecisionState> {
+  // Legacy tracker errors count as completed decisions, even if only the reasoning identifies them.
+  const rows = db.prepare(`
+    WITH classified AS (
+      SELECT email_id, timestamp, CASE
+        WHEN action_taken = 'skip' AND outcome = 'error'
+          AND COALESCE(agent_reasoning, '') NOT LIKE 'Tracker error%'
+        THEN 1 ELSE 0 END AS classification_error
+      FROM decisions
+    )
+    SELECT email_id, COUNT(*) AS total, SUM(classification_error) AS errors,
+           MAX(CASE WHEN classification_error = 1 THEN timestamp END) AS last_error
+    FROM classified
+    GROUP BY email_id
+  `).all() as { email_id: string; total: number; errors: number; last_error: string | null }[];
+
+  return new Map(rows.map(({ email_id, total, errors, last_error }) => [email_id, {
+    classificationErrors: errors,
+    lastClassificationError: last_error ?? undefined,
+    retryPending: errors === total && errors < 3,
+    exhausted: errors === total && errors >= 3,
+  }]));
+}
+
+/** Emails with any completed decision or three failed classification attempts. */
 export function getProcessedEmailIds(db: DB): Set<string> {
-  const rows = db.prepare("SELECT DISTINCT email_id FROM decisions").all() as {
-    email_id: string;
-  }[];
-  return new Set(rows.map((r) => r.email_id));
+  return new Set([...getEmailDecisionStates(db)].filter(([, state]) => !state.retryPending).map(([id]) => id));
 }

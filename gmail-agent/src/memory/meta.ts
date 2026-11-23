@@ -1,4 +1,4 @@
-import type { DB } from "./db.js";
+import { inTransaction, type DB } from "./db.js";
 
 /**
  * Tiny key/value accessors over the `meta` table (provisioned in db.ts since Stage 2,
@@ -26,4 +26,27 @@ export function getLastChecked(db: DB): string | undefined {
 
 export function setLastChecked(db: DB, iso: string): void {
   setMeta(db, "last_checked", iso);
+}
+
+interface ClassifierScan {
+  after: string;
+  startedAt: string;
+}
+
+const CLASSIFIER_SCAN_KEY = "unfinished_classifier_scan";
+
+export function getClassifierScan(db: DB): ClassifierScan | undefined {
+  const saved = getMeta(db, CLASSIFIER_SCAN_KEY);
+  return saved === undefined ? undefined : JSON.parse(saved) as ClassifierScan;
+}
+
+export function saveClassifierScan(db: DB, scan: ClassifierScan): void {
+  setMeta(db, CLASSIFIER_SCAN_KEY, JSON.stringify(scan));
+}
+
+export function completeClassifierScan(db: DB, checkedAt: string): void {
+  inTransaction(db, () => {
+    setLastChecked(db, checkedAt);
+    db.prepare("DELETE FROM meta WHERE key = ?").run(CLASSIFIER_SCAN_KEY);
+  });
 }

@@ -1,9 +1,9 @@
 import { z } from "zod";
-import type { LLMProvider } from "../llm/provider.js";
+import { formatOpenAIError, isOpenAIProviderFailure, openaiModel, type LLMProvider } from "../llm/provider.js";
 import type { GmailClient } from "../gmail/client.js";
-import type { DB } from "../memory/db.js";
+import { inTransaction, type DB } from "../memory/db.js";
 import { upsertParcel } from "../memory/parcels.js";
-import { recordDecision, getProcessedEmailIds } from "../memory/decisions.js";
+import { recordDecision, getEmailDecisionStates } from "../memory/decisions.js";
 import { logEvent } from "../memory/logs.js";
 import { upsertEmail } from "../memory/emails.js";
 import { getObservation, recordObservation } from "../memory/observations.js";
@@ -69,6 +69,7 @@ export interface ClassifyEmailInput {
 export async function classifyEmail(
   input: ClassifyEmailInput,
   deps: { llm: LLMProvider },
+  model = openaiModel(),
 ): Promise<Classification> {
   const userText = [
     input.hint ? `Prior knowledge: ${input.hint}` : "",
@@ -80,7 +81,7 @@ export async function classifyEmail(
     .filter(Boolean)
     .join("\n");
 
-  return deps.llm.extract(ClassificationSchema, SYSTEM_PROMPT, userText);
+  return deps.llm.extract(ClassificationSchema, SYSTEM_PROMPT, userText, { model, maxRetries: 0 });
 }
 
 /** Extract the lowercase domain from a From header like `DHL <noreply@dhl.com>`. */
@@ -98,9 +99,10 @@ export function senderDomain(from?: string): string | undefined {
 
 export interface RunClassifierOpts {
   days?: number;
+  after?: string;
   maxEmails?: number;
   unreadOnly?: boolean;
-  /** Skip emails that already have a decision logged (default true). The heartbeat relies on this. */
+  /** Skip emails that already have a completed decision (default true). */
   skipProcessed?: boolean;
 }
 
@@ -114,6 +116,13 @@ export interface ClassifierSummary {
   errors: number;
 }
 
+export function classifierSearchDate(now: Date, days: number): string {
+  return new Date(now.getTime() - days * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10)
+    .replace(/-/g, "/");
+}
+
 export async function runClassifier(
   opts: RunClassifierOpts = {},
   deps: { gmail?: GmailClient; llm: LLMProvider; db: DB },
@@ -121,10 +130,7 @@ export async function runClassifier(
   const days = opts.days ?? 7;
   const maxEmails = opts.maxEmails ?? 20;
 
-  const after = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
-    .toISOString()
-    .slice(0, 10)
-    .replace(/-/g, "/");
+  const after = opts.after ?? classifierSearchDate(new Date(), days);
 
   const searchResult = await gmailSearch(
     { after, maxResults: maxEmails, isUnread: opts.unreadOnly, category: trackedCategory() },
@@ -153,15 +159,20 @@ export async function runClassifier(
   });
   const summary: ClassifierSummary = { scanned: 0, tracked: 0, updated: 0, skipped: 0, deduped: 0, errors: 0 };
   const now = new Date().toISOString();
+  const model = openaiModel();
+  const diagnostics = { days, maxEmails, model, llm_calls: 0 };
 
   const skipProcessed = opts.skipProcessed ?? true;
-  const processed = skipProcessed ? getProcessedEmailIds(deps.db) : new Set<string>();
+  const states = getEmailDecisionStates(deps.db);
+  const seen = new Set<string>();
 
   for (const msg of messages) {
-    if (processed.has(msg.id)) {
+    const state = states.get(msg.id);
+    if (seen.has(msg.id) || state?.exhausted || (skipProcessed && state && !state.retryPending)) {
       summary.deduped++;
       continue;
     }
+    seen.add(msg.id);
     summary.scanned++;
 
     let body = "";
@@ -184,8 +195,10 @@ export async function runClassifier(
         ? `emails from ${domain} are usually ${getObservation(deps.db, "sender_carrier", domain)!.content}`
         : undefined;
 
+    let classification: Classification;
     try {
-      const classification = await classifyEmail(
+      diagnostics.llm_calls++;
+      classification = await classifyEmail(
         {
           emailId: msg.id,
           threadId: msg.threadId,
@@ -195,8 +208,42 @@ export async function runClassifier(
           hint,
         },
         { llm: deps.llm },
+        model,
       );
+    } catch (err) {
+      summary.errors++;
+      const error = formatOpenAIError(err, model, "OPENAI_MODEL");
+      if (isOpenAIProviderFailure(err)) {
+        logEvent(deps.db, {
+          source: "classifier",
+          level: "error",
+          message: `Classification stopped: ${error}`,
+          data: { emailId: msg.id, model, error },
+        });
+        return { success: false, data: summary, recovery: error, diagnostics };
+      }
 
+      const attempt = (state?.classificationErrors ?? 0) + 1;
+      inTransaction(deps.db, () => {
+        recordDecision(deps.db, {
+          timestamp: now,
+          email_id: msg.id,
+          thread_id: msg.threadId,
+          action_taken: "skip",
+          agent_reasoning: `Error during classification: ${error}`,
+          outcome: "error",
+        });
+        logEvent(deps.db, {
+          source: "classifier",
+          level: "error",
+          message: `Email ${msg.id} classification failed (attempt ${attempt}): ${error}`,
+          data: { emailId: msg.id, attempt, model, error },
+        });
+      });
+      continue;
+    }
+
+    inTransaction(deps.db, () => {
       const isParcel = classification.isParcelRelated && Boolean(classification.trackingNumber);
       upsertEmail(deps.db, {
         id: msg.id,
@@ -253,17 +300,7 @@ export async function runClassifier(
         });
         summary.skipped++;
       }
-    } catch (err) {
-      summary.errors++;
-      recordDecision(deps.db, {
-        timestamp: now,
-        email_id: msg.id,
-        thread_id: msg.threadId,
-        action_taken: "skip",
-        agent_reasoning: `Error during classification: ${err instanceof Error ? err.message : String(err)}`,
-        outcome: "error",
-      });
-    }
+    });
   }
 
   logEvent(deps.db, {
@@ -275,11 +312,6 @@ export async function runClassifier(
 
   return ok(summary, {
     next_action: 'Run `npm run try -- parcels` to view tracked shipments.',
-    diagnostics: {
-      days,
-      maxEmails,
-      model: process.env.OPENAI_MODEL ?? "gpt-4.1-nano",
-      llm_calls: summary.scanned - summary.errors,
-    },
+    diagnostics,
   });
 }
