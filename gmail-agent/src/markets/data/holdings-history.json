@@ -1,0 +1,2698 @@
+{
+  "metadata": {
+    "built_at": "2026-11-20T15:33:13.921Z",
+    "source": "SEC EDGAR, CIK 0001050446 (Strategy / MicroStrategy)",
+    "method": "BTC held from 8-K 'as of' statements; shares = class A + class B from latest 10-Q/10-K cover page on or before the BTC date (carry-forward)",
+    "split": "10-for-1, effective 2024-08-08; share counts dated before that are multiplied by 10",
+    "script": "src/scripts/build-holdings-history.ts"
+  },
+  "snapshots": [
+    {
+      "date": "2020-08-11",
+      "btc_held": 21454,
+      "shares_outstanding": 96861770,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-20-215604",
+        "filed": "2020-08-11"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0001564590-20-033897",
+        "as_of": "2020-07-20",
+        "class_a": 7650993,
+        "class_b": 2035184,
+        "split_factor": 10
+      }
+    },
+    {
+      "date": "2020-09-14",
+      "btc_held": 38250,
+      "shares_outstanding": 96861770,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-20-245835",
+        "filed": "2020-09-15"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0001564590-20-033897",
+        "as_of": "2020-07-20",
+        "class_a": 7650993,
+        "class_b": 2035184,
+        "split_factor": 10
+      }
+    },
+    {
+      "date": "2020-12-04",
+      "btc_held": 40824,
+      "shares_outstanding": 92669890,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-20-310787",
+        "filed": "2020-12-04"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0001564590-20-047995",
+        "as_of": "2020-10-19",
+        "class_a": 7252964,
+        "class_b": 2014025,
+        "split_factor": 10
+      }
+    },
+    {
+      "date": "2021-01-22",
+      "btc_held": 70784,
+      "shares_outstanding": 92669890,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-21-014227",
+        "filed": "2021-01-22"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0001564590-20-047995",
+        "as_of": "2020-10-19",
+        "class_a": 7252964,
+        "class_b": 2014025,
+        "split_factor": 10
+      }
+    },
+    {
+      "date": "2021-02-02",
+      "btc_held": 71079,
+      "shares_outstanding": 95870220,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-21-025369",
+        "filed": "2021-02-02"
+      },
+      "shares_source": {
+        "form": "10-K",
+        "accession": "0001564590-21-005783",
+        "as_of": "2021-02-02",
+        "class_a": 7622997,
+        "class_b": 1964025,
+        "split_factor": 10
+      }
+    },
+    {
+      "date": "2021-03-01",
+      "btc_held": 90859,
+      "shares_outstanding": 95870220,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-21-062322",
+        "filed": "2021-03-01"
+      },
+      "shares_source": {
+        "form": "10-K",
+        "accession": "0001564590-21-005783",
+        "as_of": "2021-02-02",
+        "class_a": 7622997,
+        "class_b": 1964025,
+        "split_factor": 10
+      }
+    },
+    {
+      "date": "2021-03-05",
+      "btc_held": 91064,
+      "shares_outstanding": 95870220,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-21-070446",
+        "filed": "2021-03-05"
+      },
+      "shares_source": {
+        "form": "10-K",
+        "accession": "0001564590-21-005783",
+        "as_of": "2021-02-02",
+        "class_a": 7622997,
+        "class_b": 1964025,
+        "split_factor": 10
+      }
+    },
+    {
+      "date": "2021-03-12",
+      "btc_held": 91326,
+      "shares_outstanding": 95870220,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-21-078715",
+        "filed": "2021-03-12"
+      },
+      "shares_source": {
+        "form": "10-K",
+        "accession": "0001564590-21-005783",
+        "as_of": "2021-02-02",
+        "class_a": 7622997,
+        "class_b": 1964025,
+        "split_factor": 10
+      }
+    },
+    {
+      "date": "2021-04-05",
+      "btc_held": 91579,
+      "shares_outstanding": 95870220,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-21-105625",
+        "filed": "2021-04-05"
+      },
+      "shares_source": {
+        "form": "10-K",
+        "accession": "0001564590-21-005783",
+        "as_of": "2021-02-02",
+        "class_a": 7622997,
+        "class_b": 1964025,
+        "split_factor": 10
+      }
+    },
+    {
+      "date": "2021-05-13",
+      "btc_held": 91850,
+      "shares_outstanding": 97455930,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-21-159855",
+        "filed": "2021-05-13"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0001564590-21-021949",
+        "as_of": "2021-04-22",
+        "class_a": 7781568,
+        "class_b": 1964025,
+        "split_factor": 10
+      }
+    },
+    {
+      "date": "2021-05-18",
+      "btc_held": 92079,
+      "shares_outstanding": 97455930,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-21-164617",
+        "filed": "2021-05-18"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0001564590-21-021949",
+        "as_of": "2021-04-22",
+        "class_a": 7781568,
+        "class_b": 1964025,
+        "split_factor": 10
+      }
+    },
+    {
+      "date": "2021-08-23",
+      "btc_held": 108992,
+      "shares_outstanding": 97474680,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-21-254529",
+        "filed": "2021-08-24"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0001564590-21-039125",
+        "as_of": "2021-07-22",
+        "class_a": 7783443,
+        "class_b": 1964025,
+        "split_factor": 10
+      }
+    },
+    {
+      "date": "2021-09-12",
+      "btc_held": 114042,
+      "shares_outstanding": 97474680,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-21-270915",
+        "filed": "2021-09-13"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0001564590-21-039125",
+        "as_of": "2021-07-22",
+        "class_a": 7783443,
+        "class_b": 1964025,
+        "split_factor": 10
+      }
+    },
+    {
+      "date": "2021-11-29",
+      "btc_held": 121044,
+      "shares_outstanding": 103576090,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-21-341815",
+        "filed": "2021-11-29"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0001564590-21-052646",
+        "as_of": "2021-10-21",
+        "class_a": 8393584,
+        "class_b": 1964025,
+        "split_factor": 10
+      }
+    },
+    {
+      "date": "2021-12-08",
+      "btc_held": 122478,
+      "shares_outstanding": 103576090,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-21-352140",
+        "filed": "2021-12-09"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0001564590-21-052646",
+        "as_of": "2021-10-21",
+        "class_a": 8393584,
+        "class_b": 1964025,
+        "split_factor": 10
+      }
+    },
+    {
+      "date": "2021-12-29",
+      "btc_held": 124391,
+      "shares_outstanding": 103576090,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-21-369767",
+        "filed": "2021-12-30"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0001564590-21-052646",
+        "as_of": "2021-10-21",
+        "class_a": 8393584,
+        "class_b": 1964025,
+        "split_factor": 10
+      }
+    },
+    {
+      "date": "2022-01-31",
+      "btc_held": 125051,
+      "shares_outstanding": 103576090,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-22-024027",
+        "filed": "2022-02-01"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0001564590-21-052646",
+        "as_of": "2021-10-21",
+        "class_a": 8393584,
+        "class_b": 1964025,
+        "split_factor": 10
+      }
+    },
+    {
+      "date": "2022-04-04",
+      "btc_held": 129218,
+      "shares_outstanding": 112854190,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-22-095632",
+        "filed": "2022-04-05"
+      },
+      "shares_source": {
+        "form": "10-K",
+        "accession": "0001564590-22-005287",
+        "as_of": "2022-02-01",
+        "class_a": 9321394,
+        "class_b": 1964025,
+        "split_factor": 10
+      }
+    },
+    {
+      "date": "2022-06-28",
+      "btc_held": 129699,
+      "shares_outstanding": 112975480,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-22-184423",
+        "filed": "2022-06-29"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0001564590-22-017437",
+        "as_of": "2022-04-26",
+        "class_a": 9333523,
+        "class_b": 1964025,
+        "split_factor": 10
+      }
+    },
+    {
+      "date": "2022-09-19",
+      "btc_held": 130000,
+      "shares_outstanding": 113009060,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-22-247427",
+        "filed": "2022-09-20"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0001564590-22-027479",
+        "as_of": "2022-07-26",
+        "class_a": 9336881,
+        "class_b": 1964025,
+        "split_factor": 10
+      }
+    },
+    {
+      "date": "2022-12-27",
+      "btc_held": 132500,
+      "shares_outstanding": 113177190,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-22-313098",
+        "filed": "2022-12-28"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0001564590-22-036073",
+        "as_of": "2022-10-25",
+        "class_a": 9353694,
+        "class_b": 1964025,
+        "split_factor": 10
+      }
+    },
+    {
+      "date": "2023-03-23",
+      "btc_held": 138955,
+      "shares_outstanding": 115487570,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-23-079839",
+        "filed": "2023-03-27"
+      },
+      "shares_source": {
+        "form": "10-K",
+        "accession": "0001564590-23-002012",
+        "as_of": "2023-02-02",
+        "class_a": 9584732,
+        "class_b": 1964025,
+        "split_factor": 10
+      }
+    },
+    {
+      "date": "2023-04-04",
+      "btc_held": 140000,
+      "shares_outstanding": 115487570,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-23-091616",
+        "filed": "2023-04-05"
+      },
+      "shares_source": {
+        "form": "10-K",
+        "accession": "0001564590-23-002012",
+        "as_of": "2023-02-02",
+        "class_a": 9584732,
+        "class_b": 1964025,
+        "split_factor": 10
+      }
+    },
+    {
+      "date": "2023-06-27",
+      "btc_held": 152333,
+      "shares_outstanding": 129586510,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-23-176793",
+        "filed": "2023-06-28"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0000950170-23-016229",
+        "as_of": "2023-04-24",
+        "class_a": 10994626,
+        "class_b": 1964025,
+        "split_factor": 10
+      }
+    },
+    {
+      "date": "2023-09-24",
+      "btc_held": 158245,
+      "shares_outstanding": 140853940,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-23-240932",
+        "filed": "2023-09-25"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0000950170-23-036448",
+        "as_of": "2023-07-25",
+        "class_a": 12121369,
+        "class_b": 1964025,
+        "split_factor": 10
+      }
+    },
+    {
+      "date": "2023-11-29",
+      "btc_held": 174530,
+      "shares_outstanding": 145181840,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-23-285756",
+        "filed": "2023-11-30"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0000950170-23-057418",
+        "as_of": "2023-10-24",
+        "class_a": 12554159,
+        "class_b": 1964025,
+        "split_factor": 10
+      }
+    },
+    {
+      "date": "2023-12-26",
+      "btc_held": 189150,
+      "shares_outstanding": 145181840,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-23-303488",
+        "filed": "2023-12-27"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0000950170-23-057418",
+        "as_of": "2023-10-24",
+        "class_a": 12554159,
+        "class_b": 1964025,
+        "split_factor": 10
+      }
+    },
+    {
+      "date": "2024-02-05",
+      "btc_held": 190000,
+      "shares_outstanding": 169681250,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0000950170-24-011709",
+        "filed": "2024-02-06"
+      },
+      "shares_source": {
+        "form": "10-K",
+        "accession": "0000950170-24-015847",
+        "as_of": "2024-02-01",
+        "class_a": 15004100,
+        "class_b": 1964025,
+        "split_factor": 10
+      }
+    },
+    {
+      "date": "2024-02-25",
+      "btc_held": 193000,
+      "shares_outstanding": 169681250,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-24-045396",
+        "filed": "2024-02-26"
+      },
+      "shares_source": {
+        "form": "10-K",
+        "accession": "0000950170-24-015847",
+        "as_of": "2024-02-01",
+        "class_a": 15004100,
+        "class_b": 1964025,
+        "split_factor": 10
+      }
+    },
+    {
+      "date": "2024-03-10",
+      "btc_held": 205000,
+      "shares_outstanding": 169681250,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-24-064331",
+        "filed": "2024-03-11"
+      },
+      "shares_source": {
+        "form": "10-K",
+        "accession": "0000950170-24-015847",
+        "as_of": "2024-02-01",
+        "class_a": 15004100,
+        "class_b": 1964025,
+        "split_factor": 10
+      }
+    },
+    {
+      "date": "2024-03-18",
+      "btc_held": 214246,
+      "shares_outstanding": 169681250,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-24-070801",
+        "filed": "2024-03-19"
+      },
+      "shares_source": {
+        "form": "10-K",
+        "accession": "0000950170-24-015847",
+        "as_of": "2024-02-01",
+        "class_a": 15004100,
+        "class_b": 1964025,
+        "split_factor": 10
+      }
+    },
+    {
+      "date": "2024-04-26",
+      "btc_held": 214400,
+      "shares_outstanding": 177374310,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0000950170-24-049829",
+        "filed": "2024-04-29"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0000950170-24-051230",
+        "as_of": "2024-04-24",
+        "class_a": 15773406,
+        "class_b": 1964025,
+        "split_factor": 10
+      }
+    },
+    {
+      "date": "2024-06-20",
+      "btc_held": 226331,
+      "shares_outstanding": 177374310,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-24-164014",
+        "filed": "2024-06-20"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0000950170-24-051230",
+        "as_of": "2024-04-24",
+        "class_a": 15773406,
+        "class_b": 1964025,
+        "split_factor": 10
+      }
+    },
+    {
+      "date": "2024-07-31",
+      "btc_held": 226500,
+      "shares_outstanding": 194320700,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0000950170-24-089243",
+        "filed": "2024-08-01"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0000950170-24-091778",
+        "as_of": "2024-07-25",
+        "class_a": 17468045,
+        "class_b": 1964025,
+        "split_factor": 10
+      }
+    },
+    {
+      "date": "2024-09-12",
+      "btc_held": 244800,
+      "shares_outstanding": 194320700,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-24-218462",
+        "filed": "2024-09-13"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0000950170-24-091778",
+        "as_of": "2024-07-25",
+        "class_a": 17468045,
+        "class_b": 1964025,
+        "split_factor": 10
+      }
+    },
+    {
+      "date": "2024-09-19",
+      "btc_held": 252220,
+      "shares_outstanding": 194320700,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-24-222498",
+        "filed": "2024-09-20"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0000950170-24-091778",
+        "as_of": "2024-07-25",
+        "class_a": 17468045,
+        "class_b": 1964025,
+        "split_factor": 10
+      }
+    },
+    {
+      "date": "2024-11-10",
+      "btc_held": 279420,
+      "shares_outstanding": 202644230,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-24-255184",
+        "filed": "2024-11-12"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0000950170-24-119263",
+        "as_of": "2024-10-21",
+        "class_a": 183003980,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2024-11-17",
+      "btc_held": 331200,
+      "shares_outstanding": 202644230,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-24-260452",
+        "filed": "2024-11-18"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0000950170-24-119263",
+        "as_of": "2024-10-21",
+        "class_a": 183003980,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2024-11-24",
+      "btc_held": 386700,
+      "shares_outstanding": 202644230,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-24-264733",
+        "filed": "2024-11-25"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0000950170-24-119263",
+        "as_of": "2024-10-21",
+        "class_a": 183003980,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2024-12-01",
+      "btc_held": 402100,
+      "shares_outstanding": 202644230,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-24-268429",
+        "filed": "2024-12-02"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0000950170-24-119263",
+        "as_of": "2024-10-21",
+        "class_a": 183003980,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2024-12-08",
+      "btc_held": 423650,
+      "shares_outstanding": 202644230,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-24-272923",
+        "filed": "2024-12-09"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0000950170-24-119263",
+        "as_of": "2024-10-21",
+        "class_a": 183003980,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2024-12-15",
+      "btc_held": 439000,
+      "shares_outstanding": 202644230,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-24-279044",
+        "filed": "2024-12-16"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0000950170-24-119263",
+        "as_of": "2024-10-21",
+        "class_a": 183003980,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2024-12-22",
+      "btc_held": 444262,
+      "shares_outstanding": 202644230,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-24-283686",
+        "filed": "2024-12-23"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0000950170-24-119263",
+        "as_of": "2024-10-21",
+        "class_a": 183003980,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2024-12-29",
+      "btc_held": 446400,
+      "shares_outstanding": 202644230,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-24-286217",
+        "filed": "2024-12-30"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0000950170-24-119263",
+        "as_of": "2024-10-21",
+        "class_a": 183003980,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2024-12-31",
+      "btc_held": 447470,
+      "shares_outstanding": 202644230,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-25-001854",
+        "filed": "2025-01-06"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0000950170-24-119263",
+        "as_of": "2024-10-21",
+        "class_a": 183003980,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2025-01-05",
+      "btc_held": 447470,
+      "shares_outstanding": 202644230,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-25-001854",
+        "filed": "2025-01-06"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0000950170-24-119263",
+        "as_of": "2024-10-21",
+        "class_a": 183003980,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2025-01-12",
+      "btc_held": 450000,
+      "shares_outstanding": 202644230,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-25-005000",
+        "filed": "2025-01-13"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0000950170-24-119263",
+        "as_of": "2024-10-21",
+        "class_a": 183003980,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2025-01-20",
+      "btc_held": 461000,
+      "shares_outstanding": 202644230,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-25-009102",
+        "filed": "2025-01-21"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0000950170-24-119263",
+        "as_of": "2024-10-21",
+        "class_a": 183003980,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2025-01-26",
+      "btc_held": 471107,
+      "shares_outstanding": 202644230,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-25-012671",
+        "filed": "2025-01-27"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0000950170-24-119263",
+        "as_of": "2024-10-21",
+        "class_a": 183003980,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2025-02-02",
+      "btc_held": 471107,
+      "shares_outstanding": 202644230,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-25-018889",
+        "filed": "2025-02-03"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0000950170-24-119263",
+        "as_of": "2024-10-21",
+        "class_a": 183003980,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2025-02-09",
+      "btc_held": 478740,
+      "shares_outstanding": 257351857,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-25-023183",
+        "filed": "2025-02-10"
+      },
+      "shares_source": {
+        "form": "10-K",
+        "accession": "0000950170-25-021814",
+        "as_of": "2025-02-04",
+        "class_a": 237711607,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2025-02-17",
+      "btc_held": 478740,
+      "shares_outstanding": 257351857,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-25-028184",
+        "filed": "2025-02-18"
+      },
+      "shares_source": {
+        "form": "10-K",
+        "accession": "0000950170-25-021814",
+        "as_of": "2025-02-04",
+        "class_a": 237711607,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2025-02-23",
+      "btc_held": 499096,
+      "shares_outstanding": 257351857,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0000950170-25-025233",
+        "filed": "2025-02-24"
+      },
+      "shares_source": {
+        "form": "10-K",
+        "accession": "0000950170-25-021814",
+        "as_of": "2025-02-04",
+        "class_a": 237711607,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2025-03-02",
+      "btc_held": 499096,
+      "shares_outstanding": 257351857,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0000950170-25-030406",
+        "filed": "2025-03-03"
+      },
+      "shares_source": {
+        "form": "10-K",
+        "accession": "0000950170-25-021814",
+        "as_of": "2025-02-04",
+        "class_a": 237711607,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2025-03-09",
+      "btc_held": 499096,
+      "shares_outstanding": 257351857,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-25-050411",
+        "filed": "2025-03-10"
+      },
+      "shares_source": {
+        "form": "10-K",
+        "accession": "0000950170-25-021814",
+        "as_of": "2025-02-04",
+        "class_a": 237711607,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2025-03-16",
+      "btc_held": 499226,
+      "shares_outstanding": 257351857,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0000950170-25-039835",
+        "filed": "2025-03-17"
+      },
+      "shares_source": {
+        "form": "10-K",
+        "accession": "0000950170-25-021814",
+        "as_of": "2025-02-04",
+        "class_a": 237711607,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2025-03-23",
+      "btc_held": 506137,
+      "shares_outstanding": 257351857,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0000950170-25-043494",
+        "filed": "2025-03-24"
+      },
+      "shares_source": {
+        "form": "10-K",
+        "accession": "0000950170-25-021814",
+        "as_of": "2025-02-04",
+        "class_a": 237711607,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2025-03-30",
+      "btc_held": 528185,
+      "shares_outstanding": 257351857,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0000950170-25-047219",
+        "filed": "2025-03-31"
+      },
+      "shares_source": {
+        "form": "10-K",
+        "accession": "0000950170-25-021814",
+        "as_of": "2025-02-04",
+        "class_a": 237711607,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2025-03-31",
+      "btc_held": 528185,
+      "shares_outstanding": 257351857,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0000950170-25-061806",
+        "filed": "2025-05-01"
+      },
+      "shares_source": {
+        "form": "10-K",
+        "accession": "0000950170-25-021814",
+        "as_of": "2025-02-04",
+        "class_a": 237711607,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2025-04-13",
+      "btc_held": 531644,
+      "shares_outstanding": 257351857,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0000950170-25-053501",
+        "filed": "2025-04-14"
+      },
+      "shares_source": {
+        "form": "10-K",
+        "accession": "0000950170-25-021814",
+        "as_of": "2025-02-04",
+        "class_a": 237711607,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2025-04-20",
+      "btc_held": 538200,
+      "shares_outstanding": 257351857,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0000950170-25-056007",
+        "filed": "2025-04-21"
+      },
+      "shares_source": {
+        "form": "10-K",
+        "accession": "0000950170-25-021814",
+        "as_of": "2025-02-04",
+        "class_a": 237711607,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2025-04-27",
+      "btc_held": 553555,
+      "shares_outstanding": 257351857,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0000950170-25-058962",
+        "filed": "2025-04-28"
+      },
+      "shares_source": {
+        "form": "10-K",
+        "accession": "0000950170-25-021814",
+        "as_of": "2025-02-04",
+        "class_a": 237711607,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2025-04-28",
+      "btc_held": 553555,
+      "shares_outstanding": 257351857,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0000950170-25-061806",
+        "filed": "2025-05-01"
+      },
+      "shares_source": {
+        "form": "10-K",
+        "accession": "0000950170-25-021814",
+        "as_of": "2025-02-04",
+        "class_a": 237711607,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2025-05-04",
+      "btc_held": 555450,
+      "shares_outstanding": 273403303,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0000950170-25-063168",
+        "filed": "2025-05-05"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0000950170-25-063536",
+        "as_of": "2025-05-02",
+        "class_a": 253763053,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2025-05-11",
+      "btc_held": 568840,
+      "shares_outstanding": 273403303,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0000950170-25-068580",
+        "filed": "2025-05-12"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0000950170-25-063536",
+        "as_of": "2025-05-02",
+        "class_a": 253763053,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2025-05-18",
+      "btc_held": 576230,
+      "shares_outstanding": 273403303,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0000950170-25-073962",
+        "filed": "2025-05-19"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0000950170-25-063536",
+        "as_of": "2025-05-02",
+        "class_a": 253763053,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2025-05-25",
+      "btc_held": 580250,
+      "shares_outstanding": 273403303,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0000950170-25-077387",
+        "filed": "2025-05-27"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0000950170-25-063536",
+        "as_of": "2025-05-02",
+        "class_a": 253763053,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2025-06-01",
+      "btc_held": 580955,
+      "shares_outstanding": 273403303,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0000950170-25-080022",
+        "filed": "2025-06-02"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0000950170-25-063536",
+        "as_of": "2025-05-02",
+        "class_a": 253763053,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2025-06-08",
+      "btc_held": 582000,
+      "shares_outstanding": 273403303,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0000950170-25-083448",
+        "filed": "2025-06-09"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0000950170-25-063536",
+        "as_of": "2025-05-02",
+        "class_a": 253763053,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2025-06-15",
+      "btc_held": 592100,
+      "shares_outstanding": 273403303,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0000950170-25-086545",
+        "filed": "2025-06-16"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0000950170-25-063536",
+        "as_of": "2025-05-02",
+        "class_a": 253763053,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2025-06-22",
+      "btc_held": 592345,
+      "shares_outstanding": 273403303,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0000950170-25-088711",
+        "filed": "2025-06-23"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0000950170-25-063536",
+        "as_of": "2025-05-02",
+        "class_a": 253763053,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2025-06-29",
+      "btc_held": 597325,
+      "shares_outstanding": 273403303,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0000950170-25-091211",
+        "filed": "2025-06-30"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0000950170-25-063536",
+        "as_of": "2025-05-02",
+        "class_a": 253763053,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2025-06-30",
+      "btc_held": 597325,
+      "shares_outstanding": 273403303,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0000950170-25-100916",
+        "filed": "2025-07-31"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0000950170-25-063536",
+        "as_of": "2025-05-02",
+        "class_a": 253763053,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2025-07-06",
+      "btc_held": 597325,
+      "shares_outstanding": 273403303,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0000950170-25-094137",
+        "filed": "2025-07-07"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0000950170-25-063536",
+        "as_of": "2025-05-02",
+        "class_a": 253763053,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2025-07-13",
+      "btc_held": 601550,
+      "shares_outstanding": 273403303,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0000950170-25-095461",
+        "filed": "2025-07-14"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0000950170-25-063536",
+        "as_of": "2025-05-02",
+        "class_a": 253763053,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2025-07-20",
+      "btc_held": 607770,
+      "shares_outstanding": 273403303,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0000950170-25-097081",
+        "filed": "2025-07-21"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0000950170-25-063536",
+        "as_of": "2025-05-02",
+        "class_a": 253763053,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2025-07-27",
+      "btc_held": 607770,
+      "shares_outstanding": 273403303,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0000950170-25-098938",
+        "filed": "2025-07-28"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0000950170-25-063536",
+        "as_of": "2025-05-02",
+        "class_a": 253763053,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2025-07-29",
+      "btc_held": 628791,
+      "shares_outstanding": 273403303,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-25-167987",
+        "filed": "2025-07-29"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0000950170-25-063536",
+        "as_of": "2025-05-02",
+        "class_a": 253763053,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2025-08-03",
+      "btc_held": 628791,
+      "shares_outstanding": 283552947,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0000950170-25-101634",
+        "filed": "2025-08-04"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0000950170-25-102209",
+        "as_of": "2025-07-31",
+        "class_a": 263912697,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2025-08-10",
+      "btc_held": 628946,
+      "shares_outstanding": 283552947,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0000950170-25-106241",
+        "filed": "2025-08-11"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0000950170-25-102209",
+        "as_of": "2025-07-31",
+        "class_a": 263912697,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2025-08-17",
+      "btc_held": 629376,
+      "shares_outstanding": 283552947,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0000950170-25-109566",
+        "filed": "2025-08-18"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0000950170-25-102209",
+        "as_of": "2025-07-31",
+        "class_a": 263912697,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2025-08-24",
+      "btc_held": 632457,
+      "shares_outstanding": 283552947,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0000950170-25-111093",
+        "filed": "2025-08-25"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0000950170-25-102209",
+        "as_of": "2025-07-31",
+        "class_a": 263912697,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2025-09-01",
+      "btc_held": 636505,
+      "shares_outstanding": 283552947,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001050446-25-000008",
+        "filed": "2025-09-02"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0000950170-25-102209",
+        "as_of": "2025-07-31",
+        "class_a": 263912697,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2025-09-07",
+      "btc_held": 638460,
+      "shares_outstanding": 283552947,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0000950170-25-113360",
+        "filed": "2025-09-08"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0000950170-25-102209",
+        "as_of": "2025-07-31",
+        "class_a": 263912697,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2025-09-14",
+      "btc_held": 638985,
+      "shares_outstanding": 283552947,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-25-202827",
+        "filed": "2025-09-15"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0000950170-25-102209",
+        "as_of": "2025-07-31",
+        "class_a": 263912697,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2025-09-21",
+      "btc_held": 639835,
+      "shares_outstanding": 283552947,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-25-210048",
+        "filed": "2025-09-22"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0000950170-25-102209",
+        "as_of": "2025-07-31",
+        "class_a": 263912697,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2025-09-28",
+      "btc_held": 640031,
+      "shares_outstanding": 283552947,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-25-221772",
+        "filed": "2025-09-29"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0000950170-25-102209",
+        "as_of": "2025-07-31",
+        "class_a": 263912697,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2025-09-30",
+      "btc_held": 640031,
+      "shares_outstanding": 283552947,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-25-230977",
+        "filed": "2025-10-06"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0000950170-25-102209",
+        "as_of": "2025-07-31",
+        "class_a": 263912697,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2025-10-12",
+      "btc_held": 640250,
+      "shares_outstanding": 283552947,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-25-238132",
+        "filed": "2025-10-14"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0000950170-25-102209",
+        "as_of": "2025-07-31",
+        "class_a": 263912697,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2025-10-19",
+      "btc_held": 640418,
+      "shares_outstanding": 283552947,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-25-243049",
+        "filed": "2025-10-20"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0000950170-25-102209",
+        "as_of": "2025-07-31",
+        "class_a": 263912697,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2025-10-26",
+      "btc_held": 640808,
+      "shares_outstanding": 283552947,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-25-258690",
+        "filed": "2025-10-30"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0000950170-25-102209",
+        "as_of": "2025-07-31",
+        "class_a": 263912697,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2025-11-02",
+      "btc_held": 641205,
+      "shares_outstanding": 287353735,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-25-261714",
+        "filed": "2025-11-03"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0001193125-25-262568",
+        "as_of": "2025-10-30",
+        "class_a": 267713485,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2025-11-09",
+      "btc_held": 641692,
+      "shares_outstanding": 287353735,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-25-273310",
+        "filed": "2025-11-10"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0001193125-25-262568",
+        "as_of": "2025-10-30",
+        "class_a": 267713485,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2025-11-16",
+      "btc_held": 649870,
+      "shares_outstanding": 287353735,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-25-283991",
+        "filed": "2025-11-17"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0001193125-25-262568",
+        "as_of": "2025-10-30",
+        "class_a": 267713485,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2025-11-30",
+      "btc_held": 650000,
+      "shares_outstanding": 287353735,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-25-303157",
+        "filed": "2025-12-01"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0001193125-25-262568",
+        "as_of": "2025-10-30",
+        "class_a": 267713485,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2025-12-07",
+      "btc_held": 660624,
+      "shares_outstanding": 287353735,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-25-310607",
+        "filed": "2025-12-08"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0001193125-25-262568",
+        "as_of": "2025-10-30",
+        "class_a": 267713485,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2025-12-14",
+      "btc_held": 671268,
+      "shares_outstanding": 287353735,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-25-318468",
+        "filed": "2025-12-15"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0001193125-25-262568",
+        "as_of": "2025-10-30",
+        "class_a": 267713485,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2025-12-21",
+      "btc_held": 671268,
+      "shares_outstanding": 287353735,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-25-327598",
+        "filed": "2025-12-22"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0001193125-25-262568",
+        "as_of": "2025-10-30",
+        "class_a": 267713485,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2025-12-28",
+      "btc_held": 672497,
+      "shares_outstanding": 287353735,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-25-332296",
+        "filed": "2025-12-29"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0001193125-25-262568",
+        "as_of": "2025-10-30",
+        "class_a": 267713485,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2025-12-31",
+      "btc_held": 672500,
+      "shares_outstanding": 287353735,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-26-001550",
+        "filed": "2026-01-05"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0001193125-25-262568",
+        "as_of": "2025-10-30",
+        "class_a": 267713485,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2026-01-04",
+      "btc_held": 673783,
+      "shares_outstanding": 287353735,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-26-001550",
+        "filed": "2026-01-05"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0001193125-25-262568",
+        "as_of": "2025-10-30",
+        "class_a": 267713485,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2026-01-11",
+      "btc_held": 687410,
+      "shares_outstanding": 287353735,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-26-009811",
+        "filed": "2026-01-12"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0001193125-25-262568",
+        "as_of": "2025-10-30",
+        "class_a": 267713485,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2026-01-19",
+      "btc_held": 709715,
+      "shares_outstanding": 287353735,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-26-016002",
+        "filed": "2026-01-20"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0001193125-25-262568",
+        "as_of": "2025-10-30",
+        "class_a": 267713485,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2026-01-25",
+      "btc_held": 712647,
+      "shares_outstanding": 287353735,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-26-021726",
+        "filed": "2026-01-26"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0001193125-25-262568",
+        "as_of": "2025-10-30",
+        "class_a": 267713485,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2026-02-01",
+      "btc_held": 713502,
+      "shares_outstanding": 287353735,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001050446-26-000012",
+        "filed": "2026-02-05"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0001193125-25-262568",
+        "as_of": "2025-10-30",
+        "class_a": 267713485,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2026-02-08",
+      "btc_held": 714644,
+      "shares_outstanding": 287353735,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-26-041944",
+        "filed": "2026-02-09"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0001193125-25-262568",
+        "as_of": "2025-10-30",
+        "class_a": 267713485,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2026-02-16",
+      "btc_held": 717131,
+      "shares_outstanding": 333752708,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-26-053105",
+        "filed": "2026-02-17"
+      },
+      "shares_source": {
+        "form": "10-K",
+        "accession": "0001050446-26-000020",
+        "as_of": "2026-02-13",
+        "class_a": 314112458,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2026-02-22",
+      "btc_held": 717722,
+      "shares_outstanding": 333752708,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-26-062489",
+        "filed": "2026-02-23"
+      },
+      "shares_source": {
+        "form": "10-K",
+        "accession": "0001050446-26-000020",
+        "as_of": "2026-02-13",
+        "class_a": 314112458,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2026-03-01",
+      "btc_held": 720737,
+      "shares_outstanding": 333752708,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-26-084264",
+        "filed": "2026-03-02"
+      },
+      "shares_source": {
+        "form": "10-K",
+        "accession": "0001050446-26-000020",
+        "as_of": "2026-02-13",
+        "class_a": 314112458,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2026-03-08",
+      "btc_held": 738731,
+      "shares_outstanding": 333752708,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-26-097598",
+        "filed": "2026-03-09"
+      },
+      "shares_source": {
+        "form": "10-K",
+        "accession": "0001050446-26-000020",
+        "as_of": "2026-02-13",
+        "class_a": 314112458,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2026-03-15",
+      "btc_held": 761068,
+      "shares_outstanding": 333752708,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-26-107263",
+        "filed": "2026-03-16"
+      },
+      "shares_source": {
+        "form": "10-K",
+        "accession": "0001050446-26-000020",
+        "as_of": "2026-02-13",
+        "class_a": 314112458,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2026-03-22",
+      "btc_held": 762099,
+      "shares_outstanding": 333752708,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-26-118584",
+        "filed": "2026-03-23"
+      },
+      "shares_source": {
+        "form": "10-K",
+        "accession": "0001050446-26-000020",
+        "as_of": "2026-02-13",
+        "class_a": 314112458,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2026-03-29",
+      "btc_held": 762099,
+      "shares_outstanding": 333752708,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-26-130446",
+        "filed": "2026-03-30"
+      },
+      "shares_source": {
+        "form": "10-K",
+        "accession": "0001050446-26-000020",
+        "as_of": "2026-02-13",
+        "class_a": 314112458,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2026-03-31",
+      "btc_held": 762099,
+      "shares_outstanding": 333752708,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-26-142925",
+        "filed": "2026-04-06"
+      },
+      "shares_source": {
+        "form": "10-K",
+        "accession": "0001050446-26-000020",
+        "as_of": "2026-02-13",
+        "class_a": 314112458,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2026-04-05",
+      "btc_held": 766970,
+      "shares_outstanding": 333752708,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-26-142925",
+        "filed": "2026-04-06"
+      },
+      "shares_source": {
+        "form": "10-K",
+        "accession": "0001050446-26-000020",
+        "as_of": "2026-02-13",
+        "class_a": 314112458,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2026-04-12",
+      "btc_held": 780897,
+      "shares_outstanding": 333752708,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-26-152015",
+        "filed": "2026-04-13"
+      },
+      "shares_source": {
+        "form": "10-K",
+        "accession": "0001050446-26-000020",
+        "as_of": "2026-02-13",
+        "class_a": 314112458,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2026-04-19",
+      "btc_held": 815061,
+      "shares_outstanding": 333752708,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-26-162756",
+        "filed": "2026-04-20"
+      },
+      "shares_source": {
+        "form": "10-K",
+        "accession": "0001050446-26-000020",
+        "as_of": "2026-02-13",
+        "class_a": 314112458,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2026-04-26",
+      "btc_held": 818334,
+      "shares_outstanding": 350447872,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-26-178994",
+        "filed": "2026-04-27"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0001050446-26-000031",
+        "as_of": "2026-04-26",
+        "class_a": 330807622,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2026-05-03",
+      "btc_held": 818334,
+      "shares_outstanding": 350447872,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001050446-26-000024",
+        "filed": "2026-05-05"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0001050446-26-000031",
+        "as_of": "2026-04-26",
+        "class_a": 330807622,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2026-05-10",
+      "btc_held": 818869,
+      "shares_outstanding": 350447872,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-26-215754",
+        "filed": "2026-05-11"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0001050446-26-000031",
+        "as_of": "2026-04-26",
+        "class_a": 330807622,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2026-05-17",
+      "btc_held": 843738,
+      "shares_outstanding": 350447872,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-26-227918",
+        "filed": "2026-05-18"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0001050446-26-000031",
+        "as_of": "2026-04-26",
+        "class_a": 330807622,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2026-05-25",
+      "btc_held": 843738,
+      "shares_outstanding": 350447872,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-26-237907",
+        "filed": "2026-05-26"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0001050446-26-000031",
+        "as_of": "2026-04-26",
+        "class_a": 330807622,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2026-05-31",
+      "btc_held": 843706,
+      "shares_outstanding": 350447872,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-26-249768",
+        "filed": "2026-06-01",
+        "sold": true
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0001050446-26-000031",
+        "as_of": "2026-04-26",
+        "class_a": 330807622,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2026-06-07",
+      "btc_held": 845256,
+      "shares_outstanding": 350447872,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-26-260709",
+        "filed": "2026-06-08"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0001050446-26-000031",
+        "as_of": "2026-04-26",
+        "class_a": 330807622,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2026-06-14",
+      "btc_held": 846842,
+      "shares_outstanding": 350447872,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-26-270311",
+        "filed": "2026-06-15"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0001050446-26-000031",
+        "as_of": "2026-04-26",
+        "class_a": 330807622,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2026-06-21",
+      "btc_held": 847363,
+      "shares_outstanding": 350447872,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-26-276717",
+        "filed": "2026-06-22"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0001050446-26-000031",
+        "as_of": "2026-04-26",
+        "class_a": 330807622,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2026-06-28",
+      "btc_held": 847363,
+      "shares_outstanding": 350447872,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-26-286871",
+        "filed": "2026-06-29"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0001050446-26-000031",
+        "as_of": "2026-04-26",
+        "class_a": 330807622,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2026-06-30",
+      "btc_held": 846000,
+      "shares_outstanding": 350447872,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-26-295586",
+        "filed": "2026-07-06",
+        "sold": true
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0001050446-26-000031",
+        "as_of": "2026-04-26",
+        "class_a": 330807622,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2026-07-05",
+      "btc_held": 843775,
+      "shares_outstanding": 350447872,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-26-295586",
+        "filed": "2026-07-06",
+        "sold": true
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0001050446-26-000031",
+        "as_of": "2026-04-26",
+        "class_a": 330807622,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2026-07-12",
+      "btc_held": 843775,
+      "shares_outstanding": 350447872,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-26-301483",
+        "filed": "2026-07-13"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0001050446-26-000031",
+        "as_of": "2026-04-26",
+        "class_a": 330807622,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2026-07-19",
+      "btc_held": 843775,
+      "shares_outstanding": 350447872,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-26-308369",
+        "filed": "2026-07-20"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0001050446-26-000031",
+        "as_of": "2026-04-26",
+        "class_a": 330807622,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2026-07-26",
+      "btc_held": 843775,
+      "shares_outstanding": 384225751,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001628280-26-051027",
+        "filed": "2026-07-30"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0001050446-26-000044",
+        "as_of": "2026-07-24",
+        "class_a": 364585501,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2026-08-02",
+      "btc_held": 842138,
+      "shares_outstanding": 384225751,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-26-329565",
+        "filed": "2026-08-03",
+        "sold": true
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0001050446-26-000044",
+        "as_of": "2026-07-24",
+        "class_a": 364585501,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2026-08-09",
+      "btc_held": 840447,
+      "shares_outstanding": 384225751,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-26-341297",
+        "filed": "2026-08-10",
+        "sold": true
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0001050446-26-000044",
+        "as_of": "2026-07-24",
+        "class_a": 364585501,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2026-08-16",
+      "btc_held": 840447,
+      "shares_outstanding": 384225751,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-26-353240",
+        "filed": "2026-08-17"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0001050446-26-000044",
+        "as_of": "2026-07-24",
+        "class_a": 364585501,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2026-08-23",
+      "btc_held": 840447,
+      "shares_outstanding": 384225751,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-26-361845",
+        "filed": "2026-08-24"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0001050446-26-000044",
+        "as_of": "2026-07-24",
+        "class_a": 364585501,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2026-08-30",
+      "btc_held": 845050,
+      "shares_outstanding": 384225751,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-26-375463",
+        "filed": "2026-08-31"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0001050446-26-000044",
+        "as_of": "2026-07-24",
+        "class_a": 364585501,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2026-09-07",
+      "btc_held": 845050,
+      "shares_outstanding": 384225751,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-26-384402",
+        "filed": "2026-09-08"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0001050446-26-000044",
+        "as_of": "2026-07-24",
+        "class_a": 364585501,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2026-09-13",
+      "btc_held": 845050,
+      "shares_outstanding": 384225751,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-26-389858",
+        "filed": "2026-09-14"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0001050446-26-000044",
+        "as_of": "2026-07-24",
+        "class_a": 364585501,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2026-09-20",
+      "btc_held": 846000,
+      "shares_outstanding": 384225751,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-26-396093",
+        "filed": "2026-09-21"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0001050446-26-000044",
+        "as_of": "2026-07-24",
+        "class_a": 364585501,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2026-09-27",
+      "btc_held": 847666,
+      "shares_outstanding": 384225751,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-26-403417",
+        "filed": "2026-09-28"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0001050446-26-000044",
+        "as_of": "2026-07-24",
+        "class_a": 364585501,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2026-09-30",
+      "btc_held": 847666,
+      "shares_outstanding": 384225751,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-26-413164",
+        "filed": "2026-10-05"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0001050446-26-000044",
+        "as_of": "2026-07-24",
+        "class_a": 364585501,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2026-10-04",
+      "btc_held": 848000,
+      "shares_outstanding": 384225751,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-26-413164",
+        "filed": "2026-10-05"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0001050446-26-000044",
+        "as_of": "2026-07-24",
+        "class_a": 364585501,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2026-10-11",
+      "btc_held": 848250,
+      "shares_outstanding": 384225751,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-26-419726",
+        "filed": "2026-10-13"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0001050446-26-000044",
+        "as_of": "2026-07-24",
+        "class_a": 364585501,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2026-10-18",
+      "btc_held": 848517,
+      "shares_outstanding": 384225751,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-26-424688",
+        "filed": "2026-10-19"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0001050446-26-000044",
+        "as_of": "2026-07-24",
+        "class_a": 364585501,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2026-10-25",
+      "btc_held": 848517,
+      "shares_outstanding": 422354607,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001050446-26-000047",
+        "filed": "2026-10-29"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0001050446-26-000060",
+        "as_of": "2026-10-25",
+        "class_a": 402714357,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2026-11-01",
+      "btc_held": 849327,
+      "shares_outstanding": 422354607,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-26-442707",
+        "filed": "2026-11-02"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0001050446-26-000060",
+        "as_of": "2026-10-25",
+        "class_a": 402714357,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2026-11-08",
+      "btc_held": 850364,
+      "shares_outstanding": 422354607,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-26-452693",
+        "filed": "2026-11-09"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0001050446-26-000060",
+        "as_of": "2026-10-25",
+        "class_a": 402714357,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    },
+    {
+      "date": "2026-11-15",
+      "btc_held": 850849,
+      "shares_outstanding": 422354607,
+      "btc_source": {
+        "form": "8-K",
+        "accession": "0001193125-26-462151",
+        "filed": "2026-11-16"
+      },
+      "shares_source": {
+        "form": "10-Q",
+        "accession": "0001050446-26-000060",
+        "as_of": "2026-10-25",
+        "class_a": 402714357,
+        "class_b": 19640250,
+        "split_factor": 1
+      }
+    }
+  ]
+}

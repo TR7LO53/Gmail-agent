@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 // Type-only import — erased by esbuild, so Vite never tries to bundle node:sqlite.
 import type { DatabaseSync as DatabaseSyncType } from "node:sqlite";
+import { seedHoldingsSnapshots } from "./holdings-seed.js";
 
 // Use createRequire so Vite/esbuild doesn't statically analyse node:sqlite.
 // node:sqlite is a Node.js built-in (stable since 22.5); require() always finds it.
@@ -124,6 +125,14 @@ CREATE TABLE IF NOT EXISTS news_summaries (
 CREATE INDEX IF NOT EXISTS idx_news_summaries_received_at ON news_summaries(received_at);
 CREATE INDEX IF NOT EXISTS idx_news_summaries_sender_status_received
   ON news_summaries(sender_id, status, received_at);
+
+CREATE TABLE IF NOT EXISTS holdings_snapshots (
+  date TEXT PRIMARY KEY,                 -- YYYY-MM-DD (UTC day)
+  btc_held REAL NOT NULL CHECK (btc_held > 0),
+  shares_outstanding INTEGER NOT NULL CHECK (shares_outstanding > 0),
+  source TEXT NOT NULL CHECK (source IN ('automatic', 'manual')),
+  created_at TEXT NOT NULL
+);
 `;
 
 const DEFAULT_NEWS_INTERESTS = [
@@ -159,5 +168,7 @@ export function openDb(dbPath?: string): DB {
   ensureColumn(db, "food_log", "original", "TEXT");
   // Migration: older DBs have food_log without a provenance tag ('preset' | 'lookup').
   ensureColumn(db, "food_log", "provenance", "TEXT");
+  // One-time Strategy holdings history; a no-op once the table has any row.
+  seedHoldingsSnapshots(db);
   return db;
 }

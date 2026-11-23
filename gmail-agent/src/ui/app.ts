@@ -40,6 +40,14 @@ import { addPreset, listPresets, removePreset, updatePreset } from "../memory/pr
 import { logEvent } from "../memory/logs.js";
 import { nutritionGoals } from "../config.js";
 import { SseBroadcaster } from "./sse.js";
+import {
+  createMarketsService,
+  getHoldings,
+  isTimeframe,
+  isWatchlistEntryId,
+  saveManualHoldings,
+  type MarketsDeps,
+} from "../markets/service.js";
 
 // Module-anchored — never process.cwd(). The server can be launched from either the repo root or
 // gmail-agent/, exactly like the MCP entry point (see the cwd auth-bug fix).
@@ -49,19 +57,24 @@ const PUBLIC_DIR = path.resolve(__dirname, "public");
 export interface AppDeps {
   db: DB;
   broadcaster: SseBroadcaster;
+  /** Prices and the holdings check for the Markets tab; without it those two routes answer 503. */
+  markets?: MarketsDeps;
 }
 
 /**
- * Build the dashboard app. Mostly a read-only view over the DB — no Gmail, no OpenAI. The one
- * exceptions (see ADR 0002) are food data and AI News sender/interests settings. Every such edit
- * is logged to `logs` with source "manual-edit". Automation lives in the separately-run
- * heartbeat; this server otherwise just renders what's there and pushes an SSE `update` when the DB
- * changes (the server entry drives that via the poller).
+ * Build the dashboard app. Mostly a read-only view over the DB — no Gmail, no OpenAI. The
+ * exceptions (see ADR 0002) are food data, AI News sender/interests settings and manual Strategy
+ * holdings Snapshots. Every such edit is logged to `logs` with source "manual-edit". Automation
+ * lives in the separately-run heartbeat; this server otherwise just renders what's there and pushes
+ * an SSE `update` when the DB changes (the server entry drives that via the poller). Markets prices
+ * are fetched live and never stored; opening the watchlist also starts the throttled holdings check.
  */
 export function createApp(deps: AppDeps): express.Express {
   const { db, broadcaster } = deps;
   const app = express();
   app.use(express.json());
+  const markets = deps.markets ? createMarketsService({ db, ...deps.markets }) : undefined;
+  const marketsNow = deps.markets?.now ?? Date.now;
 
   app.get("/api/parcels", (req, res) => {
     const all = req.query.all === "true" || req.query.all === "1";
@@ -347,6 +360,67 @@ export function createApp(deps: AppDeps): express.Express {
     const raw = Number(req.query.limit);
     const limit = Number.isFinite(raw) && raw > 0 ? Math.min(raw, 200) : 50;
     res.json({ observations: listRecentObservations(db, limit) });
+  });
+
+  // Markets. A source failure is a normal 200 with `ok: false` so the UI can keep its old numbers;
+  // 400 is only for bad parameters, 500 for a bug.
+  const marketsError = (res: express.Response, error: unknown) => {
+    console.error("Markets route failed:", error instanceof Error ? error.message : error);
+    res.status(500).json({ error: "Markets request failed." });
+  };
+
+  app.get("/api/markets/watchlist", async (_req, res) => {
+    if (!markets) {
+      res.status(503).json({ error: "Markets are not configured." });
+      return;
+    }
+    try {
+      res.json(await markets.getWatchlist());
+    } catch (error) {
+      marketsError(res, error);
+    }
+  });
+
+  app.get("/api/markets/series", async (req, res) => {
+    const { entry, tf } = req.query;
+    if (!isWatchlistEntryId(entry)) {
+      res.status(400).json({ error: "entry must be one of the Watchlist ids." });
+      return;
+    }
+    if (!isTimeframe(tf)) {
+      res.status(400).json({ error: "tf must be one of H1, H4, D1, W1, MN." });
+      return;
+    }
+    if (!markets) {
+      res.status(503).json({ error: "Markets are not configured." });
+      return;
+    }
+    try {
+      res.json(await markets.getSeries(entry, tf));
+    } catch (error) {
+      marketsError(res, error);
+    }
+  });
+
+  app.get("/api/markets/holdings", (_req, res) => {
+    try {
+      res.json(getHoldings(db, marketsNow()));
+    } catch (error) {
+      marketsError(res, error);
+    }
+  });
+
+  app.post("/api/markets/holdings", (req, res) => {
+    try {
+      const result = saveManualHoldings(db, marketsNow(), req.body);
+      if (!result.ok) {
+        res.status(400).json({ error: result.error });
+        return;
+      }
+      res.status(201).json(result.response);
+    } catch (error) {
+      marketsError(res, error);
+    }
   });
 
   app.get("/api/stream", (req, res) => {

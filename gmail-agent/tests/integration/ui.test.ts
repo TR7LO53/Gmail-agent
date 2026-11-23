@@ -284,4 +284,14 @@ describe("dashboard API", () => {
     expect(body.lastDay).toHaveProperty("kcal");
     expect(body.lastWeekAverage).toHaveProperty("kcal");
   });
+
+  it("serves the Markets tab and its scripts as static files", async () => {
+    const page = await fetch(`${base}/`);
+    expect(await page.text()).toContain('id="view-markets"');
+    const script = await fetch(`${base}/markets.js`);
+    expect(script.status).toBe(200);
+    const lib = await fetch(`${base}/vendor/lightweight-charts.standalone.production.js`);
+    expect(lib.status).toBe(200);
+    expect(await lib.text()).toContain("Lightweight Charts");
+  });
 });

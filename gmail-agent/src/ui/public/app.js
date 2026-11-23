@@ -809,7 +809,9 @@ document.querySelectorAll(".tab").forEach((tab) =>
   tab.addEventListener("click", () => {
     document.querySelectorAll(".tab").forEach((t) => t.classList.remove("active"));
     tab.classList.add("active");
-    ["dashboard", "food-data", "ai-news"].forEach((view) => { $(`view-${view}`).hidden = tab.dataset.view !== view; });
+    ["dashboard", "food-data", "ai-news", "markets"].forEach((view) => { $(`view-${view}`).hidden = tab.dataset.view !== view; });
+    if (tab.dataset.view === "markets") window.marketsTab?.show();
+    else window.marketsTab?.hide();
     if (tab.dataset.view === "food-data") {
       refreshPresets();
       refreshFoodLog();

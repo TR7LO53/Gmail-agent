@@ -1,5 +1,6 @@
 import "../env.js";
 import { openDb } from "../memory/db.js";
+import { createMarketsDeps } from "../markets/deps.js";
 import { createApp } from "./app.js";
 import { SseBroadcaster, getDashboardSignature } from "./sse.js";
 
@@ -18,7 +19,7 @@ const POLL_MS = 2500;
 
 const db = openDb();
 const broadcaster = new SseBroadcaster();
-const app = createApp({ db, broadcaster });
+const app = createApp({ db, broadcaster, markets: createMarketsDeps(db) });
 
 // Watch the DB for changes and fan out an SSE `update` only when something actually changed.
 let lastSignature = getDashboardSignature(db);

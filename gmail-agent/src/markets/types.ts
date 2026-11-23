@@ -31,6 +31,8 @@ export interface Quote {
   change: number | null;
   changePercent: number | null;
   observationWeekday: string | null;
+  /** The exchange's IANA time zone; `observationWeekday` is a day in this zone. */
+  timeZone: string;
   fetchedAt: number;
   unavailableReason?: string;
 }
@@ -43,7 +45,7 @@ export interface LinePoint {
 }
 
 export interface LineSeries {
-  name: "gold-silver-ratio";
+  name: "gold-silver-ratio" | "strategy-premium";
   timeframe: Timeframe;
   points: LinePoint[];
   fetchedAt: number;
