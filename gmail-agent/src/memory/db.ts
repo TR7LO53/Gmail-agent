@@ -152,13 +152,18 @@ function ensureColumn(db: DB, table: string, column: string, type: string): void
 
 export type DB = DatabaseSyncType;
 
-export function inTransaction(db: DB, write: () => void): void {
+export function inTransaction<T>(db: DB, write: () => T): T {
   db.exec("BEGIN IMMEDIATE");
   try {
-    write();
+    const value = write();
     db.exec("COMMIT");
+    return value;
   } catch (error) {
-    db.exec("ROLLBACK");
+    try {
+      db.exec("ROLLBACK");
+    } catch {
+      // SQLite may already have rolled back. Preserve the original error.
+    }
     throw error;
   }
 }

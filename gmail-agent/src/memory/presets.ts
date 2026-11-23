@@ -1,4 +1,7 @@
 import type { DB } from "./db.js";
+import { MissingFoodDataError } from "./audit.js";
+
+export class DuplicatePresetError extends Error {}
 
 export interface FoodPreset {
   id: number;
@@ -32,14 +35,11 @@ function rowToPreset(row: Record<string, unknown>): FoodPreset {
 }
 
 export function addPreset(db: DB, input: AddPresetInput): FoodPreset {
-  if (findPresetByName(db, input.name)) {
-    throw new Error(`Preset "${input.name}" already exists.`);
-  }
   const stmt = db.prepare(
     `INSERT INTO food_presets (name, aliases, kcal, protein_g, carbs_g, fat_g)
-     VALUES (?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(name) DO NOTHING RETURNING *`,
   );
-  const result = stmt.run(
+  const inserted = stmt.get(
     input.name,
     JSON.stringify(input.aliases ?? []),
     input.kcal,
@@ -47,12 +47,8 @@ export function addPreset(db: DB, input: AddPresetInput): FoodPreset {
     input.carbs_g,
     input.fat_g,
   );
-  return rowToPreset(
-    db.prepare("SELECT * FROM food_presets WHERE id = ?").get(result.lastInsertRowid) as Record<
-      string,
-      unknown
-    >,
-  );
+  if (!inserted) throw new DuplicatePresetError(`Preset "${input.name}" already exists.`);
+  return rowToPreset(inserted);
 }
 
 export function findPresetByName(db: DB, name: string): FoodPreset | undefined {
@@ -65,9 +61,9 @@ export function findPresetByName(db: DB, name: string): FoodPreset | undefined {
 export function updatePreset(db: DB, input: AddPresetInput): FoodPreset {
   const stmt = db.prepare(
     `UPDATE food_presets SET aliases = ?, kcal = ?, protein_g = ?, carbs_g = ?, fat_g = ?
-     WHERE name = ?`,
+     WHERE name = ? RETURNING *`,
   );
-  stmt.run(
+  const updated = stmt.get(
     JSON.stringify(input.aliases ?? []),
     input.kcal,
     input.protein_g,
@@ -75,9 +71,8 @@ export function updatePreset(db: DB, input: AddPresetInput): FoodPreset {
     input.fat_g,
     input.name,
   );
-  const updated = findPresetByName(db, input.name);
-  if (!updated) throw new Error(`Preset "${input.name}" does not exist.`);
-  return updated;
+  if (!updated) throw new MissingFoodDataError(`Preset "${input.name}" does not exist.`);
+  return rowToPreset(updated);
 }
 
 /** Delete a preset by canonical name. Returns true if a row was removed. */

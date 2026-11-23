@@ -11,7 +11,8 @@ import {
   lastDayTotals,
   lastWeekAverage,
 } from "../../src/memory/food.js";
-import { addPreset, findPresetByName } from "../../src/memory/presets.js";
+import { listRecentLogs } from "../../src/memory/logs.js";
+import { addPreset, findPresetByName, listPresets } from "../../src/memory/presets.js";
 import { startOfLocalDayIso } from "../../src/memory/emails.js";
 import type { DB } from "../../src/memory/db.js";
 import type { NutritionItem } from "../../src/nutrition/provider.js";
@@ -135,10 +136,16 @@ describe("food log", () => {
     expect(deleteFoodLogRow(db, 999)).toBe(false);
   });
 
-  it("createManualFoodLogEntry uses a matching preset's macros, scaled to weight", () => {
-    addPreset(db, { name: "egg", kcal: 150, protein_g: 12, carbs_g: 1, fat_g: 10 });
-
-    const row = createManualFoodLogEntry(db, { name: "egg", qty: 50 });
+  it("createManualFoodLogEntry uses a matching Alias and scales Preset macros to weight", () => {
+    const preset = addPreset(db, { name: "oatmeal", aliases: ["owsianka"], kcal: 150, protein_g: 12, carbs_g: 1, fat_g: 10 });
+    const row = createManualFoodLogEntry(db, { name: "OWSIANKA", qty: 50 });
+    expect(listPresets(db)).toEqual([preset]);
+    expect(row.name).toBe("OWSIANKA");
+    expect(row.unit).toBe("g");
+    expect(listRecentLogs(db)).toEqual([expect.objectContaining({
+      source: "manual-edit", level: "info", message: 'Created food "OWSIANKA" (50 g)',
+      data: { table: "food_log", id: row.id },
+    })]);
 
     expect(row.source).toBe("manual");
     expect(row.provenance).toBe("preset");
@@ -169,6 +176,30 @@ describe("food log", () => {
     expect(preset?.protein_g).toBe(10);
     expect(preset?.carbs_g).toBe(15);
     expect(preset?.fat_g).toBe(5);
+    expect(listRecentLogs(db)).toEqual([
+      expect.objectContaining({
+        source: "manual-edit", level: "info", message: 'Created food "mystery casserole" (200 g)',
+        data: { table: "food_log", id: row.id },
+      }),
+      expect.objectContaining({
+        source: "manual-edit", level: "info", message: 'Created preset "mystery casserole"',
+        data: { table: "food_presets", name: "mystery casserole" },
+      }),
+    ]);
+  });
+
+  it.each([
+    ["food insert", "food_log", ""],
+    ["second Activity entry", "logs", "WHEN json_extract(NEW.data, '$.table') = 'food_log'"],
+  ])("rolls back the Manual Entry and its new Preset when the %s fails", (_failure, table, condition) => {
+    db.exec(`CREATE TRIGGER reject_insert BEFORE INSERT ON ${table} ${condition}
+      BEGIN SELECT RAISE(ABORT, 'insert failed'); END`);
+    expect(() => createManualFoodLogEntry(db, {
+      name: "new food", qty: 200, kcal: 200, protein_g: 10, carbs_g: 30, fat_g: 5,
+    })).toThrow("insert failed");
+    expect(listPresets(db)).toEqual([]);
+    expect(listTodaysFood(db, startOfLocalDayIso())).toEqual([]);
+    expect(listRecentLogs(db)).toEqual([]);
   });
 
   it("createManualFoodLogEntry throws when no preset matches and macros are missing", () => {

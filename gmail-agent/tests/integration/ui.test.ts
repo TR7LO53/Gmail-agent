@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import type { AddressInfo } from "node:net";
 import type { Server } from "node:http";
 import { openDb } from "../../src/memory/db.js";
@@ -7,8 +7,8 @@ import { recordDecision } from "../../src/memory/decisions.js";
 import { setMeta, setLastChecked } from "../../src/memory/meta.js";
 import { upsertEmail } from "../../src/memory/emails.js";
 import { logFoodItems } from "../../src/memory/food.js";
-import { logEvent } from "../../src/memory/logs.js";
-import { addPreset } from "../../src/memory/presets.js";
+import { listRecentLogs, logEvent } from "../../src/memory/logs.js";
+import { addPreset, listPresets } from "../../src/memory/presets.js";
 import { createApp } from "../../src/ui/app.js";
 import { SseBroadcaster } from "../../src/ui/sse.js";
 import type { DB } from "../../src/memory/db.js";
@@ -57,6 +57,79 @@ beforeAll(async () => {
 afterAll(() => {
   server?.close();
 });
+
+const macros = { kcal: 0, protein_g: 0, carbs_g: 0, fat_g: 0 };
+
+type InvalidWrite = [method: string, url: string, input: string | undefined, error: string];
+const invalidWrites: InvalidWrite[] = [];
+const foodPost = "/api/food";
+const foodPut = "/api/food/1";
+const presetPost = "/api/presets";
+const presetPut = "/api/presets/chicken%20breast";
+const invalidNumber = "RAW_INFINITY";
+
+function invalid(method: string, url: string, body: unknown, error: string) {
+  const json = JSON.stringify(body)?.replace('"RAW_INFINITY"', "1e309");
+  invalidWrites.push([method, url, json, error]);
+}
+
+for (const qty of [-1, 0, undefined, null, "50", true, invalidNumber]) {
+  invalid("POST", foodPost, { name: "chicken breast", qty }, "Weight");
+  invalid("PUT", foodPut, { qty }, "Weight");
+}
+for (const name of [undefined, "", "   ", 123]) {
+  invalid("POST", foodPost, { name, qty: 50, ...macros }, "Name");
+  invalid("POST", presetPost, { name, ...macros }, "Name");
+}
+for (const id of ["0", "-1", "1.5", "abc", "9007199254740993"]) {
+  invalid("PUT", `/api/food/${id}`, { qty: 50 }, "Food id");
+  invalid("DELETE", `/api/food/${id}`, undefined, "Food id");
+}
+invalid("PUT", "/api/presets/%20", macros, "Name");
+invalid("DELETE", "/api/presets/%20", undefined, "Name");
+
+for (const field of Object.keys(macros)) {
+  for (const value of [undefined, -1, "1", invalidNumber]) {
+    invalid("POST", foodPost, { name: "unmatched", qty: 50, ...macros, [field]: value },
+      value === undefined ? "macros are required" : field);
+    invalid("POST", presetPost, { name: "unused", ...macros, [field]: value }, field);
+    invalid("PUT", presetPut, { ...macros, [field]: value }, field);
+  }
+}
+invalid("POST", foodPost, { name: "chicken breast", qty: 50, kcal: null }, "kcal");
+for (const aliases of ["invalid", ["valid", 123], null]) {
+  invalid("POST", presetPost, { name: "unused", ...macros, aliases }, "Aliases");
+  invalid("PUT", presetPut, { ...macros, aliases }, "Aliases");
+}
+
+for (const [method, url, missing] of [
+  ["POST", foodPost, "Name"], ["PUT", foodPut, "Weight"],
+  ["POST", presetPost, "kcal"], ["PUT", presetPut, "kcal"],
+]) {
+  invalidWrites.push([method, url, '{"name":', "valid JSON"]);
+  invalid(method, url, [], "JSON object");
+  invalid(method, url, undefined, missing);
+}
+
+function write(method: string, url: string, body?: string, origin = base) {
+  return fetch(`${origin}${url}`, {
+    method, headers: { "Content-Type": "application/json" }, body,
+  });
+}
+
+function snapshotFoodData(database = db) {
+  return {
+    food: database.prepare("SELECT * FROM food_log ORDER BY id").all(),
+    presets: listPresets(database),
+    logs: listRecentLogs(database),
+  };
+}
+
+function expectActivity(message: string, data: Record<string, unknown>) {
+  expect(listRecentLogs(db, 1)).toEqual([
+    expect.objectContaining({ source: "manual-edit", level: "info", message, data }),
+  ]);
+}
 
 describe("dashboard API", () => {
   it("GET /api/parcels returns only active parcels by default", async () => {
@@ -146,11 +219,7 @@ describe("dashboard API", () => {
     expect(body.entry.qty).toBe(200);
     expect(body.entry.kcal).toBe(300); // proportional fallback: 150 kcal @ 100g -> 300 @ 200g
 
-    const logs: any = await (await fetch(`${base}/api/logs?limit=10`)).json();
-    const entry = logs.logs.find(
-      (l: { source: string; message: string }) => l.source === "manual-edit" && l.message.includes("weight"),
-    );
-    expect(entry).toBeTruthy();
+    expectActivity('Updated food "egg" (200 g)', { table: "food_log", id: before.id });
   });
 
   it("DELETE /api/food/:id removes the row and logs a manual-edit entry", async () => {
@@ -161,16 +230,7 @@ describe("dashboard API", () => {
     const after: any = await (await fetch(`${base}/api/food`)).json();
     expect(after.entries.find((e: { id: number }) => e.id === row.id)).toBeUndefined();
 
-    const logs: any = await (await fetch(`${base}/api/logs?limit=10`)).json();
-    const entry = logs.logs.find(
-      (l: { source: string; message: string }) => l.source === "manual-edit" && l.message.includes("Deleted food"),
-    );
-    expect(entry).toBeTruthy();
-  });
-
-  it("DELETE /api/food/:id returns 404 for an unknown row", async () => {
-    const res = await fetch(`${base}/api/food/999999`, { method: "DELETE" });
-    expect(res.status).toBe(404);
+    expectActivity('Deleted food "egg"', { table: "food_log", id: row.id });
   });
 
   it("GET /api/presets returns every stored preset", async () => {
@@ -193,10 +253,7 @@ describe("dashboard API", () => {
     const list: any = await (await fetch(`${base}/api/presets`)).json();
     expect(list.presets.map((p: { name: string }) => p.name)).toContain("oatmeal");
 
-    const logs: any = await (await fetch(`${base}/api/logs?limit=10`)).json();
-    const entry = logs.logs.find((l: { source: string }) => l.source === "manual-edit");
-    expect(entry).toBeTruthy();
-    expect(entry.message).toContain("oatmeal");
+    expectActivity('Created preset "oatmeal"', { table: "food_presets", name: "oatmeal" });
   });
 
   it("PUT /api/presets/:name updates macros and logs a manual-edit entry", async () => {
@@ -209,11 +266,7 @@ describe("dashboard API", () => {
     const body: any = await res.json();
     expect(body.preset.kcal).toBe(170);
 
-    const logs: any = await (await fetch(`${base}/api/logs?limit=10`)).json();
-    const entry = logs.logs.find(
-      (l: { source: string; message: string }) => l.source === "manual-edit" && l.message.includes("Updated"),
-    );
-    expect(entry).toBeTruthy();
+    expectActivity('Updated preset "chicken breast"', { table: "food_presets", name: "chicken breast" });
   });
 
   it("DELETE /api/presets/:name removes the preset and logs a manual-edit entry", async () => {
@@ -223,16 +276,7 @@ describe("dashboard API", () => {
     const list: any = await (await fetch(`${base}/api/presets`)).json();
     expect(list.presets.map((p: { name: string }) => p.name)).not.toContain("oatmeal");
 
-    const logs: any = await (await fetch(`${base}/api/logs?limit=10`)).json();
-    const entry = logs.logs.find(
-      (l: { source: string; message: string }) => l.source === "manual-edit" && l.message.includes("Deleted"),
-    );
-    expect(entry).toBeTruthy();
-  });
-
-  it("DELETE /api/presets/:name returns 404 for an unknown preset", async () => {
-    const res = await fetch(`${base}/api/presets/${encodeURIComponent("does-not-exist")}`, { method: "DELETE" });
-    expect(res.status).toBe(404);
+    expectActivity('Deleted preset "oatmeal"', { table: "food_presets", name: "oatmeal" });
   });
 
   it("POST /api/food with a matching preset auto-fills macros and logs a manual-edit entry", async () => {
@@ -247,11 +291,7 @@ describe("dashboard API", () => {
     expect(body.entry.provenance).toBe("preset");
     expect(body.entry.kcal).toBe(340); // chicken breast preset was updated to 170 kcal/100g above, scaled to 200g
 
-    const logs: any = await (await fetch(`${base}/api/logs?limit=10`)).json();
-    const entry = logs.logs.find(
-      (l: { source: string; message: string }) => l.source === "manual-edit" && l.message.includes("chicken breast"),
-    );
-    expect(entry).toBeTruthy();
+    expectActivity('Created food "chicken breast" (200 g)', { table: "food_log", id: body.entry.id });
   });
 
   it("POST /api/food with no matching preset creates one from the typed macros", async () => {
@@ -275,6 +315,110 @@ describe("dashboard API", () => {
       body: JSON.stringify({ name: "zzz-no-macros", qty: 100 }),
     });
     expect(res.status).toBe(400);
+  });
+
+  it.each([
+    ["PUT", "/api/food/999999", { qty: 1 }, "edit food #999999", { table: "food_log", id: 999999 }],
+    ["DELETE", "/api/food/999999", undefined, "delete food #999999", { table: "food_log", id: 999999 }],
+    ["PUT", "/api/presets/missing", macros, 'edit preset "missing"', { table: "food_presets", name: "missing" }],
+    ["DELETE", "/api/presets/missing", undefined, 'delete preset "missing"', { table: "food_presets", name: "missing" }],
+  ] as const)("%s %s records exactly one Activity entry for a missing record", async (method, url, body, subject, data) => {
+    const before = snapshotFoodData();
+    const response = await write(method, url, JSON.stringify(body));
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual({ error: expect.stringContaining("not found") });
+    expectActivity(`Attempted to ${subject}, but it no longer exists.`, data);
+    const after = snapshotFoodData();
+    expect({ ...after, logs: after.logs.slice(1) }).toEqual(before);
+  });
+
+  it("returns 409 for a duplicate name and preserves the existing Preset and Activity", async () => {
+    const before = snapshotFoodData();
+    const response = await write("POST", "/api/presets", JSON.stringify({ name: " chicken breast ", ...macros }));
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({ error: 'Preset "chicken breast" already exists.' });
+    expect(snapshotFoodData()).toEqual(before);
+  });
+
+  it("accepts a fractional weight, zero macros, omitted aliases and encoded Preset names", async () => {
+    const name = "rice / milk";
+    const created = await write("POST", "/api/presets", JSON.stringify({ name: ` ${name} `, ...macros }));
+    expect(created.status).toBe(201);
+    expect(await created.json()).toEqual({ preset: { id: expect.any(Number), name, aliases: [], ...macros } });
+    const url = `/api/presets/${encodeURIComponent(name)}`;
+    const edited = await write("PUT", url, JSON.stringify({ ...macros, name: "cannot rename" }));
+    expect(edited.status).toBe(200);
+    expect((await edited.json()).preset.name).toBe(name);
+    const food = await write("POST", "/api/food", JSON.stringify({ name: ` ${name} `, qty: 12.5 }));
+    expect(food.status).toBe(201);
+    expect((await food.json()).entry).toMatchObject({ name, qty: 12.5, ...macros });
+    expect(await (await write("DELETE", url)).json()).toEqual({ ok: true });
+  });
+
+  it("accepts representable macros at extreme weights without returning null values", async () => {
+    const tiny = await write("POST", foodPost, JSON.stringify({ name: "tiny zero", qty: 1e-308, ...macros }));
+    expect(tiny.status).toBe(201);
+    expect((await tiny.json()).entry).toMatchObject({ qty: 1e-308, ...macros });
+
+    const large = await write("POST", foodPost, JSON.stringify({
+      name: "large value", qty: 100, ...macros, protein_g: 1e308,
+    }));
+    expect(large.status).toBe(201);
+    expect((await large.json()).entry.protein_g).toBe(1e308);
+
+    const before = snapshotFoodData();
+    const overflow = await write("POST", foodPost, JSON.stringify({
+      name: "unrepresentable", qty: 1e-308, ...macros, protein_g: 100,
+    }));
+    expect(overflow.status).toBe(400);
+    expect(await overflow.json()).toEqual({ error: expect.stringContaining("supported number range") });
+    expect(snapshotFoodData()).toEqual(before);
+  });
+
+  it("uses the exact path name for a legacy Preset stored with spaces", async () => {
+    const name = "  legacy rice  ";
+    addPreset(db, { name, ...macros });
+    const url = `/api/presets/${encodeURIComponent(name)}`;
+    const edited = await write("PUT", url, JSON.stringify({ ...macros, kcal: 1 }));
+    expect(edited.status).toBe(200);
+    expect((await edited.json()).preset).toMatchObject({ name, kcal: 1 });
+    expect(await (await write("DELETE", url)).json()).toEqual({ ok: true });
+  });
+
+  it.each([
+    ["Activity for a saved row", "POST", "/api/presets", "logs"],
+    ["Activity for a missing row", "DELETE", "/api/food/123", "logs"],
+    ["a data mutation", "POST", "/api/presets", "food_presets"],
+  ])("returns a general 500 when %s fails", async (_case, method, url, table) => {
+    const isolated = openDb(":memory:");
+    const listener = createApp({ db: isolated, broadcaster: new SseBroadcaster() }).listen(0, "127.0.0.1");
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      await new Promise<void>((resolve, reject) => listener.once("listening", resolve).once("error", reject));
+      const origin = `http://127.0.0.1:${(listener.address() as AddressInfo).port}`;
+      isolated.exec(`CREATE TRIGGER reject_write BEFORE INSERT ON ${table}
+        BEGIN SELECT RAISE(ABORT, 'private SQLite failure'); END`);
+      const before = snapshotFoodData(isolated);
+      const response = await write(method, url, method === "POST"
+        ? JSON.stringify({ name: "unused", ...macros })
+        : undefined, origin);
+      expect(response.status).toBe(500);
+      expect(await response.json()).toEqual({ error: "Food Data write failed." });
+      expect(logged).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ message: "private SQLite failure" }));
+      expect(snapshotFoodData(isolated)).toEqual(before);
+    } finally {
+      logged.mockRestore();
+      await new Promise<void>((resolve) => listener.close(() => resolve()));
+      isolated.close();
+    }
+  });
+
+  it.each(invalidWrites)("%s %s rejects invalid input %s without changing Food Data", async (method, url, input, error) => {
+    const before = snapshotFoodData();
+    const response = await write(method, url, input);
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: expect.stringContaining(error) });
+    expect(snapshotFoodData()).toEqual(before);
   });
 
   it("GET /api/food/stats returns lastDay and lastWeekAverage totals", async () => {

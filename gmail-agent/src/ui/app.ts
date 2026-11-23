@@ -1,6 +1,8 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import express from "express";
+import { z } from "zod";
+import { auditedWrite, MissingFoodDataError } from "../memory/audit.js";
 import type { DB } from "../memory/db.js";
 import { listActiveParcels, listAllParcels } from "../memory/parcels.js";
 import { listDecisions } from "../memory/decisions.js";
@@ -31,12 +33,14 @@ import {
   listTodaysFood,
   todaysTotals,
   updateFoodLogWeight,
-  deleteFoodLogRow,
+  deleteFoodLogRowReturningName,
+  MissingManualMacrosError,
+  FoodMacroRangeError,
   createManualFoodLogEntry,
   lastDayTotals,
   lastWeekAverage,
 } from "../memory/food.js";
-import { addPreset, listPresets, removePreset, updatePreset } from "../memory/presets.js";
+import { addPreset, DuplicatePresetError, listPresets, removePreset, updatePreset } from "../memory/presets.js";
 import { logEvent } from "../memory/logs.js";
 import { nutritionGoals } from "../config.js";
 import { SseBroadcaster } from "./sse.js";
@@ -53,6 +57,59 @@ import {
 // gmail-agent/, exactly like the MCP entry point (see the cwd auth-bug fix).
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.resolve(__dirname, "public");
+
+const nonemptyName = z.string().refine((name) => name.trim().length > 0, "Enter a name.");
+const weight = z.number().finite().positive();
+const foodWeightInput = z.object({ qty: weight });
+const foodId = z.object({
+  id: z.string().regex(/^0*[1-9][0-9]*$/).transform(Number).refine(Number.isSafeInteger),
+});
+const presetName = z.object({ name: nonemptyName });
+const macro = z.number().finite().nonnegative();
+const macros = z.object({ kcal: macro, protein_g: macro, carbs_g: macro, fat_g: macro });
+const presetFields = macros.extend({ aliases: z.array(z.string()).optional() });
+const newPreset = presetFields.extend({ name: nonemptyName.transform((name) => name.trim()) });
+const manualEntry = macros.partial().extend({
+  name: nonemptyName.transform((name) => name.trim()),
+  qty: weight,
+});
+
+const foodFieldErrors: Record<string, string> = {
+  qty: "Weight must be a finite number greater than zero.",
+  name: "Name must be non-empty text.",
+  id: "Food id must be a positive safe integer.",
+  kcal: "kcal must be a finite number of at least zero.",
+  protein_g: "protein_g must be a finite number of at least zero.",
+  carbs_g: "carbs_g must be a finite number of at least zero.",
+  fat_g: "fat_g must be a finite number of at least zero.",
+  aliases: "Aliases must be a list of strings.",
+};
+
+const foodWriteError: express.ErrorRequestHandler = (error, req, res, next) => {
+  const isFoodWrite = req.method === "POST"
+    ? /^\/api\/(food|presets)\/?$/i.test(req.path)
+    : ["PUT", "DELETE"].includes(req.method) && /^\/api\/(food|presets)\/[^/]+\/?$/i.test(req.path);
+  if (!isFoodWrite) {
+    next(error);
+    return;
+  }
+
+  if (error.type === "entity.parse.failed") {
+    res.status(400).json({ error: "Request body must be a valid JSON object." });
+  } else if (error instanceof URIError) {
+    res.status(400).json({ error: "Invalid URL parameter." });
+  } else if (error instanceof z.ZodError) {
+    const field = error.issues[0]?.path[0];
+    res.status(400).json({ error: foodFieldErrors[String(field)] ?? "Request body must be a JSON object." });
+  } else if (error instanceof MissingManualMacrosError || error instanceof FoodMacroRangeError) {
+    res.status(400).json({ error: error.message });
+  } else if (error instanceof DuplicatePresetError) {
+    res.status(409).json({ error: error.message });
+  } else {
+    console.error("Food Data write failed:", error);
+    res.status(500).json({ error: "Food Data write failed." });
+  }
+};
 
 export interface AppDeps {
   db: DB;
@@ -259,50 +316,42 @@ export function createApp(deps: AppDeps): express.Express {
   });
 
   app.post("/api/food", (req, res) => {
-    let entry;
-    try {
-      entry = createManualFoodLogEntry(db, req.body);
-    } catch (err) {
-      res.status(400).json({ error: err instanceof Error ? err.message : String(err) });
-      return;
-    }
-    logEvent(db, {
-      source: "manual-edit",
-      message: `Logged "${entry.name}" (${entry.qty}g) manually`,
-      data: { table: "food_log", id: entry.id },
-    });
+    const entry = createManualFoodLogEntry(db, manualEntry.parse(req.body));
     res.status(201).json({ entry });
   });
 
   app.put("/api/food/:id", (req, res) => {
-    const id = Number(req.params.id);
-    let entry;
-    try {
-      entry = updateFoodLogWeight(db, id, Number(req.body.qty));
-    } catch {
-      res.status(404).json({ error: `food_log row ${id} not found.` });
+    const { id } = foodId.parse(req.params);
+    const { qty } = foodWeightInput.parse(req.body);
+    const target = { table: "food_log", id } as const;
+    const entry = auditedWrite(db, () => {
+      try {
+        const value = updateFoodLogWeight(db, id, qty);
+        return { value, entries: [{ ...target, action: "updated", name: value.name, qty }] };
+      } catch (error) {
+        if (!(error instanceof MissingFoodDataError)) throw error;
+        return { missing: target, action: "updated" as const };
+      }
+    });
+    if (!entry) {
+      res.status(404).json({ error: `Food #${id} not found.` });
       return;
     }
-    logEvent(db, {
-      source: "manual-edit",
-      message: `Edited weight of food_log #${id} ("${entry.name}") to ${entry.qty}g`,
-      data: { table: "food_log", id },
-    });
     res.json({ entry });
   });
 
   app.delete("/api/food/:id", (req, res) => {
-    const id = Number(req.params.id);
-    const removed = deleteFoodLogRow(db, id);
+    const { id } = foodId.parse(req.params);
+    const target = { table: "food_log", id } as const;
+    const removed = auditedWrite(db, () => {
+      const name = deleteFoodLogRowReturningName(db, id);
+      if (name === undefined) return { missing: target, action: "deleted" as const };
+      return { value: true, entries: [{ ...target, action: "deleted", name }] };
+    });
     if (!removed) {
-      res.status(404).json({ error: `food_log row ${id} not found.` });
+      res.status(404).json({ error: `Food #${id} not found.` });
       return;
     }
-    logEvent(db, {
-      source: "manual-edit",
-      message: `Deleted food_log row #${id}`,
-      data: { table: "food_log", id },
-    });
     res.json({ ok: true });
   });
 
@@ -321,38 +370,45 @@ export function createApp(deps: AppDeps): express.Express {
   });
 
   app.post("/api/presets", (req, res) => {
-    const preset = addPreset(db, req.body);
-    logEvent(db, {
-      source: "manual-edit",
-      message: `Created preset "${preset.name}"`,
-      data: { table: "food_presets", name: preset.name },
+    const input = newPreset.parse(req.body);
+    const preset = auditedWrite(db, () => {
+      const value = addPreset(db, input);
+      return { value, entries: [{ table: "food_presets", action: "created", name: value.name }] };
     });
     res.status(201).json({ preset });
   });
 
   app.put("/api/presets/:name", (req, res) => {
-    const name = req.params.name;
-    const preset = updatePreset(db, { ...req.body, name });
-    logEvent(db, {
-      source: "manual-edit",
-      message: `Updated preset "${preset.name}"`,
-      data: { table: "food_presets", name: preset.name },
+    const { name } = presetName.parse(req.params);
+    const input = presetFields.parse(req.body);
+    const target = { table: "food_presets", name } as const;
+    const preset = auditedWrite(db, () => {
+      try {
+        const value = updatePreset(db, { ...input, name });
+        return { value, entries: [{ ...target, action: "updated" }] };
+      } catch (error) {
+        if (!(error instanceof MissingFoodDataError)) throw error;
+        return { missing: target, action: "updated" as const };
+      }
     });
+    if (!preset) {
+      res.status(404).json({ error: `Preset "${name}" not found.` });
+      return;
+    }
     res.json({ preset });
   });
 
   app.delete("/api/presets/:name", (req, res) => {
-    const name = req.params.name;
-    const removed = removePreset(db, name);
+    const { name } = presetName.parse(req.params);
+    const target = { table: "food_presets", name } as const;
+    const removed = auditedWrite(db, () => {
+      if (!removePreset(db, name)) return { missing: target, action: "deleted" as const };
+      return { value: true, entries: [{ ...target, action: "deleted" }] };
+    });
     if (!removed) {
       res.status(404).json({ error: `Preset "${name}" not found.` });
       return;
     }
-    logEvent(db, {
-      source: "manual-edit",
-      message: `Deleted preset "${name}"`,
-      data: { table: "food_presets", name },
-    });
     res.json({ ok: true });
   });
 
@@ -435,6 +491,8 @@ export function createApp(deps: AppDeps): express.Express {
     res.write(`event: update\ndata: ${JSON.stringify({ reason: "connected" })}\n\n`);
     req.on("close", () => broadcaster.remove(res));
   });
+
+  app.use(foodWriteError);
 
   // Static dashboard (index.html served at "/").
   app.use(express.static(PUBLIC_DIR));

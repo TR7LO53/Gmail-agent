@@ -1,4 +1,5 @@
 import type { DB } from "./db.js";
+import { auditedWrite, MissingFoodDataError, type ActivityEntry } from "./audit.js";
 import type { NutritionItem, NutritionTotals } from "../nutrition/provider.js";
 import { addPreset, listPresets } from "./presets.js";
 import { matchPreset } from "../nutrition/preset-match.js";
@@ -141,8 +142,34 @@ export function lastWeekAverage(db: DB, sinceIso: string): NutritionTotals {
   };
 }
 
-function round1(n: number): number {
-  return Math.round(n * 10) / 10;
+export class FoodMacroRangeError extends Error {}
+
+function round1(value: number): number {
+  return Math.abs(value) > Number.MAX_VALUE / 10 ? value : Math.round(value * 10) / 10;
+}
+
+function scaleFoodMacros(macros: NutritionTotals, fromGrams: number, toGrams: number): NutritionTotals {
+  const factor = toGrams / fromGrams;
+  const scale = (value: number, decimals: 0 | 1) => {
+    if (value === 0) return 0;
+    let scaled = value * factor;
+    if (!Number.isFinite(factor)) {
+      // Two smaller ratios can keep the result finite even when their product would overflow.
+      const midpoint = Math.sqrt(fromGrams) * Math.sqrt(toGrams);
+      scaled = value * (midpoint / fromGrams) * (toGrams / midpoint);
+    }
+    if (!Number.isFinite(scaled)) {
+      throw new FoodMacroRangeError("Scaled macros are outside the supported number range.");
+    }
+    if (decimals === 0) return Math.round(scaled);
+    return round1(scaled);
+  };
+  return {
+    kcal: scale(macros.kcal, 0),
+    protein_g: scale(macros.protein_g, 1),
+    carbs_g: scale(macros.carbs_g, 1),
+    fat_g: scale(macros.fat_g, 1),
+  };
 }
 
 /**
@@ -154,35 +181,20 @@ export function updateFoodLogWeight(db: DB, id: number, qty: number): FoodRow {
   const existing = db.prepare("SELECT * FROM food_log WHERE id = ?").get(id) as
     | Record<string, unknown>
     | undefined;
-  if (!existing) throw new Error(`food_log row ${id} not found.`);
+  if (!existing) throw new MissingFoodDataError(`food_log row ${id} not found.`);
   const row = rowToFood(existing);
 
   const preset = matchPreset(listPresets(db), { original: row.name, name: row.name, grams: qty });
 
-  let kcal: number, protein_g: number, carbs_g: number, fat_g: number;
-  if (preset) {
-    const factor = qty / 100;
-    kcal = Math.round(preset.kcal * factor);
-    protein_g = round1(preset.protein_g * factor);
-    carbs_g = round1(preset.carbs_g * factor);
-    fat_g = round1(preset.fat_g * factor);
-  } else {
-    // No matching preset (e.g. an older USDA-lookup row): scale proportionally from this row's
-    // own previous macros instead, since there's no per-100g source to recompute from.
-    const ratio = row.qty ? qty / row.qty : 1;
-    kcal = Math.round(row.kcal * ratio);
-    protein_g = round1(row.protein_g * ratio);
-    carbs_g = round1(row.carbs_g * ratio);
-    fat_g = round1(row.fat_g * ratio);
-  }
-
-  db.prepare(
-    "UPDATE food_log SET qty = ?, kcal = ?, protein_g = ?, carbs_g = ?, fat_g = ? WHERE id = ?",
-  ).run(qty, kcal, protein_g, carbs_g, fat_g, id);
-
-  return rowToFood(
-    db.prepare("SELECT * FROM food_log WHERE id = ?").get(id) as Record<string, unknown>,
-  );
+  // Legacy rows without a Preset keep their macros in proportion to the previous weight.
+  const { kcal, protein_g, carbs_g, fat_g } = preset
+    ? scaleFoodMacros(preset, 100, qty)
+    : scaleFoodMacros(row, row.qty || qty, qty);
+  const updated = db.prepare(
+    "UPDATE food_log SET qty = ?, kcal = ?, protein_g = ?, carbs_g = ?, fat_g = ? WHERE id = ? RETURNING *",
+  ).get(qty, kcal, protein_g, carbs_g, fat_g, id);
+  if (!updated) throw new Error("Food weight update returned no row.");
+  return rowToFood(updated);
 }
 
 export interface ManualEntryInput {
@@ -195,6 +207,8 @@ export interface ManualEntryInput {
   fat_g?: number;
 }
 
+export class MissingManualMacrosError extends Error {}
+
 /**
  * Create a food_log row by hand from the dashboard. If `name` matches an existing preset (same
  * exact-match logic as elsewhere), macros come from that preset scaled to `qty`. Otherwise the
@@ -202,55 +216,44 @@ export interface ManualEntryInput {
  * back-calculated to per-100g — so every manual entry ends up backed by a preset either way.
  */
 export function createManualFoodLogEntry(db: DB, input: ManualEntryInput): FoodRow {
-  const { name, qty } = input;
-  const preset = matchPreset(listPresets(db), { original: name, name, grams: qty });
-
-  let kcal: number, protein_g: number, carbs_g: number, fat_g: number;
-  if (preset) {
-    const factor = qty / 100;
-    kcal = Math.round(preset.kcal * factor);
-    protein_g = round1(preset.protein_g * factor);
-    carbs_g = round1(preset.carbs_g * factor);
-    fat_g = round1(preset.fat_g * factor);
-  } else {
-    if (
-      input.kcal == null ||
-      input.protein_g == null ||
-      input.carbs_g == null ||
-      input.fat_g == null
-    ) {
-      throw new Error(`No preset matches "${name}" — macros are required to log it.`);
+  return auditedWrite(db, () => {
+    const { name, qty } = input;
+    const preset = matchPreset(listPresets(db), { original: name, name, grams: qty });
+    let createdPreset: ActivityEntry | undefined;
+    let { kcal, protein_g, carbs_g, fat_g } = input;
+    if (preset) {
+      ({ kcal, protein_g, carbs_g, fat_g } = scaleFoodMacros(preset, 100, qty));
+    } else {
+      if (kcal == null || protein_g == null || carbs_g == null || fat_g == null) {
+        throw new MissingManualMacrosError(`No preset matches "${name}" — macros are required to log it.`);
+      }
+      const per100 = scaleFoodMacros({ kcal, protein_g, carbs_g, fat_g }, qty, 100);
+      const created = addPreset(db, { name, ...per100 });
+      createdPreset = { table: "food_presets", action: "created", name: created.name };
     }
-    ({ kcal, protein_g, carbs_g, fat_g } = input as Required<ManualEntryInput>);
-    const per100 = 100 / qty;
-    addPreset(db, {
-      name,
-      kcal: Math.round(kcal * per100),
-      protein_g: round1(protein_g * per100),
-      carbs_g: round1(carbs_g * per100),
-      fat_g: round1(fat_g * per100),
-    });
-  }
 
-  const result = db
-    .prepare(
+    const inserted = db.prepare(
       `INSERT INTO food_log (ts, source, name, qty, unit, kcal, protein_g, carbs_g, fat_g, provenance)
-       VALUES (?, 'manual', ?, ?, 'g', ?, ?, ?, ?, 'preset')`,
-    )
-    .run(new Date().toISOString(), name, qty, kcal, protein_g, carbs_g, fat_g);
+       VALUES (?, 'manual', ?, ?, 'g', ?, ?, ?, ?, 'preset') RETURNING *`,
+    ).get(new Date().toISOString(), name, qty, kcal, protein_g, carbs_g, fat_g);
+    if (!inserted) throw new Error("Manual Entry insert returned no row.");
 
-  return rowToFood(
-    db.prepare("SELECT * FROM food_log WHERE id = ?").get(result.lastInsertRowid) as Record<
-      string,
-      unknown
-    >,
-  );
+    const value = rowToFood(inserted);
+    const createdFood: ActivityEntry = {
+      table: "food_log", action: "created", id: value.id, name: value.name, qty,
+    };
+    return { value, entries: createdPreset ? [createdPreset, createdFood] : [createdFood] };
+  });
 }
 
 /** Delete a single food_log row by id. Returns true if a row was removed. */
 export function deleteFoodLogRow(db: DB, id: number): boolean {
-  const result = db.prepare("DELETE FROM food_log WHERE id = ?").run(id);
-  return result.changes > 0;
+  return deleteFoodLogRowReturningName(db, id) !== undefined;
+}
+
+export function deleteFoodLogRowReturningName(db: DB, id: number): string | undefined {
+  const removed = db.prepare("DELETE FROM food_log WHERE id = ? RETURNING name").get(id);
+  return removed?.name as string | undefined;
 }
 
 /** Delete the most recently logged meal (all rows sharing the latest ts). Returns rows removed. */

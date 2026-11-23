@@ -478,6 +478,28 @@ function renderDecisions(data) {
 
 let editingFoodLogId = null;
 
+async function deleteFoodData(url, messageEl) {
+  messageEl.textContent = "";
+  let response;
+  try {
+    response = await fetch(url, { method: "DELETE" });
+  } catch {
+    messageEl.textContent = "Delete failed. Could not connect to the server.";
+    return false;
+  }
+
+  if (response.ok) return true;
+  if (response.status === 404) {
+    messageEl.textContent = "Already deleted.";
+    return true;
+  }
+
+  const body = await response.json().catch(() => null);
+  const error = typeof body?.error === "string" && body.error.trim();
+  messageEl.textContent = error || `Delete failed (${response.status}).`;
+  return false;
+}
+
 function renderFoodLog(entries) {
   const el = $("foodLogTable");
   if (!entries.length) {
@@ -530,7 +552,7 @@ function renderFoodLog(entries) {
   el.querySelectorAll(".foodDeleteBtn").forEach((btn) =>
     btn.addEventListener("click", async () => {
       if (!confirm("Delete this food log entry? This cannot be undone.")) return;
-      await fetch(`/api/food/${btn.dataset.id}`, { method: "DELETE" });
+      if (!(await deleteFoodData(`/api/food/${btn.dataset.id}`, $("foodDeleteMessage")))) return;
       refreshFoodLog();
       refreshFoodStats();
     }),
@@ -614,7 +636,10 @@ function updateFoodCreateMacroFields() {
     macroInputs.forEach((el) => (el.disabled = true));
     hint.textContent = `Matches preset "${preset.name}" — macros auto-filled.`;
   } else {
-    macroInputs.forEach((el) => (el.disabled = false));
+    for (const input of macroInputs) {
+      if (input.disabled) input.value = "";
+      input.disabled = false;
+    }
     hint.textContent = name.trim() ? "No matching preset — enter macros for this weight yourself." : "";
   }
 }
@@ -631,16 +656,13 @@ $("foodCreateForm").addEventListener("submit", async (ev) => {
   const name = String(fd.get("name") || "").trim();
   const qty = Number(fd.get("qty"));
   const matched = clientMatchPreset(name);
-  const payload = matched
-    ? { name, qty }
-    : {
-        name,
-        qty,
-        kcal: Number(fd.get("kcal")),
-        protein_g: Number(fd.get("protein_g")),
-        carbs_g: Number(fd.get("carbs_g")),
-        fat_g: Number(fd.get("fat_g")),
-      };
+  const payload = { name, qty };
+  if (!matched) {
+    for (const field of ["kcal", "protein_g", "carbs_g", "fat_g"]) {
+      const value = fd.get(field);
+      if (value != null && value !== "") payload[field] = Number(value);
+    }
+  }
   const res = await fetch("/api/food", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -716,7 +738,8 @@ function renderPresets(presets) {
   el.querySelectorAll(".presetDeleteBtn").forEach((btn) =>
     btn.addEventListener("click", async () => {
       if (!confirm(`Delete preset "${btn.dataset.name}"? This cannot be undone.`)) return;
-      await fetch(`/api/presets/${encodeURIComponent(btn.dataset.name)}`, { method: "DELETE" });
+      const url = `/api/presets/${encodeURIComponent(btn.dataset.name)}`;
+      if (!(await deleteFoodData(url, $("presetDeleteMessage")))) return;
       refreshPresets();
     }),
   );
