@@ -12,4 +12,6 @@ The dashboard may also write the AI News settings: the sender list (`news_sender
 
 ## Amendment (2026-11-20): Holdings Snapshots
 
+The Markets tab may write manual Holdings Snapshots (Strategy's BTC held and shares outstanding on a date). Automatic Snapshots are read from SEC EDGAR filings and can be misread; the manual form is the user's correction path, so it must be writable. Market prices are never stored at all — they are fetched from Yahoo Finance on demand — so there is nothing else on that tab to write.
+
 Markets storage may write Strategy Holdings Snapshots (`holdings_snapshots`). A manual write replaces the Snapshot for that date and is logged to `logs` with source `manual-edit` (values before and after); an automatic write never replaces a manual Snapshot. An automatic reading that fails the sanity check (BTC held lower than the latest Snapshot, or more than 10% higher) is not saved: it is kept as a pending warning in `meta` (`markets_holdings_warning`) and logged as a `markets` warning. The one-time history seed, loaded by `openDb` only into an empty table, writes to `holdings_snapshots` alone. This permission covers `holdings_snapshots` and that warning row; other agent data stays outside the dashboard's write scope.
