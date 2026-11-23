@@ -12,6 +12,7 @@ import {
   findAggregateBtc,
   findCoverShares,
   htmlToText,
+  reportsBtcSales,
   submissionsUrl,
   toPostSplitShares,
   type CoverShares,
@@ -24,6 +25,9 @@ import type { FetchImpl } from "./yahoo.js";
  * Sources:
  *  - BTC held: the 8-K weekly statement ("Aggregate BTC Holdings"). The snapshot date is the
  *    statement's "as of" date, not the filing date (the 8-K filed Monday describes the Sunday before).
+ *    A sale signal in the parsed filing text (including any loaded exhibits) applies to all
+ *    its "as of" dates. It permits a drop of up to 5% versus the latest snapshot and an
+ *    accepted drop is logged to Activity with both BTC counts.
  *  - Shares outstanding: class A + class B from the cover page of the latest 10-Q / 10-K (basic,
  *    not diluted). The XBRL `dei` route (`EntityCommonStockSharesOutstanding`) returns 404 for this
  *    company, so the cover page text is read instead, exactly as the history builder does.
@@ -38,10 +42,10 @@ import type { FetchImpl } from "./yahoo.js";
  * The "last check" time is stored before the first request, so two tabs opened together start one
  * pass, and a failed pass (or a missing User-Agent) is not retried on every tab open.
  *
- * A failed pass writes no snapshot: every document is fetched and parsed, every reading validated,
- * and only then saved. Failures are logged to Activity and returned, never thrown. Only readings
- * newer than the latest automatic snapshot are saved, and a rejected reading (the sanity check from
- * `saveHoldingsSnapshot`) stops the pass so its warning is not cleared by a later save.
+ * All documents and readings are checked for parse errors and share counts before saving.
+ * Failures are logged to Activity and returned. The reader saves readings newer than the latest
+ * automatic snapshot in date order and preserves any manual snapshot for the same date. A
+ * rejection from `saveHoldingsSnapshot` stops further saves and keeps the warning visible.
  *
  * Known gap: if Strategy changes the table heading, the "Aggregate BTC Holdings" marker disappears
  * and such an 8-K is skipped quietly like any other 8-K. The "holdings are stale" warning (14 days)
@@ -111,6 +115,7 @@ interface Filing {
 interface Reading {
   date: string;
   btc_held: number;
+  reportsBtcSales: boolean;
 }
 
 function isTimeout(error: unknown): boolean {
@@ -276,8 +281,13 @@ export async function refreshHoldingsFromSec(options: HoldingsReaderOptions): Pr
         if (found.length === 0 && TABLE_MARKER.test(text)) tableWithoutReading();
       }
       if (found.length === 0) continue; // Offerings, governance and similar: no holdings statement, not an error.
+      const filingReportsSales = reportsBtcSales(text);
       for (const statement of found) {
-        readings.set(statement.as_of, { date: statement.as_of, btc_held: statement.btc_held });
+        readings.set(statement.as_of, {
+          date: statement.as_of,
+          btc_held: statement.btc_held,
+          reportsBtcSales: filingReportsSales,
+        });
       }
     }
 
@@ -318,7 +328,7 @@ export async function refreshHoldingsFromSec(options: HoldingsReaderOptions): Pr
       if (!cover) throw new SecError("parse", `No cover page with share counts dated on or before ${reading.date}.`);
       const shares = toPostSplitShares(cover.class_a + cover.class_b, cover.as_of).value;
       assertValidReading(reading.date, reading.btc_held, shares);
-      return { date: reading.date, btc_held: reading.btc_held, shares_outstanding: shares };
+      return { ...reading, shares_outstanding: shares };
     });
 
     const saved: string[] = [];

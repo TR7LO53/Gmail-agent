@@ -15,6 +15,7 @@ import {
   saveHoldingsSnapshot,
 } from "../../src/memory/holdings.js";
 import { listRecentLogs } from "../../src/memory/logs.js";
+import { setMeta } from "../../src/memory/meta.js";
 
 // Recorded EDGAR responses, see tests/fixtures/markets/sec/README.md.
 const FIXTURES = new URL("../fixtures/markets/sec/", import.meta.url);
@@ -29,6 +30,10 @@ const URL_SUBMISSIONS = submissionsUrl();
 const URL_8K_NOV_16 = archiveUrl("0001193125-26-462151", "mstr-20261116.htm");
 const URL_8K_NOV_09 = archiveUrl("0001193125-26-452693", "mstr-20261109.htm");
 const URL_10Q = archiveUrl("0001050446-26-000060", "mstr-20260930.htm");
+
+const URL_8K_AUG_10 = archiveUrl("0001193125-26-341297", "mstr-20260810.htm");
+const URL_8K_AUG_17 = archiveUrl("0001193125-26-353240", "mstr-20260817.htm");
+const EIGHT_K_AUG_17 = readFixture("8k-0001193125-26-353240-mstr-20260817.htm");
 
 const USER_AGENT = "test-agent test@example.invalid";
 const NOW = new Date("2026-11-20T15:00:00.000Z");
@@ -66,6 +71,23 @@ function fakeSec(overrides: Record<string, string | Response> = {}) {
     }
   });
   return { fetchImpl, calls, urls: () => calls.map((call) => call.url), maxInFlight: () => maxInFlight };
+}
+
+function augustSec(through: string, overrides: Record<string, string> = {}) {
+  const submissions = JSON.parse(SUBMISSIONS) as { filings: { recent: Record<string, string[]> } };
+  const recent = submissions.filings.recent;
+  const withinRange = recent.filingDate.map((date) => date <= through);
+  for (const [key, values] of Object.entries(recent)) {
+    recent[key] = values.filter((_, index) => withinRange[index]);
+  }
+  return fakeSec({
+    [URL_SUBMISSIONS]: JSON.stringify(submissions),
+    [archiveUrl("0001193125-26-329565", "mstr-20260803.htm")]: readFixture("8k-0001193125-26-329565-mstr-20260803.htm"),
+    [URL_8K_AUG_10]: readFixture("8k-0001193125-26-341297-mstr-20260810.htm"),
+    [URL_8K_AUG_17]: EIGHT_K_AUG_17,
+    [archiveUrl("0001050446-26-000044", "mstr-20260630.htm")]: readFixture("10q-0001050446-26-000044-mstr-20260630.htm"),
+    ...overrides,
+  });
 }
 
 describe("automatic holdings reader (SEC EDGAR)", () => {
@@ -172,6 +194,94 @@ describe("automatic holdings reader (SEC EDGAR)", () => {
       const text = JSON.stringify(listRecentLogs(db, 100));
       expect(text).not.toContain("test-agent");
       expect(text).not.toContain("example.invalid");
+    });
+  });
+
+  describe("BTC sales", () => {
+    const augustNow = new Date("2026-08-24T15:00:00.000Z");
+    const acceptedDrops = () =>
+      logsAt("info").filter((log) => log.source === "markets" && log.message.startsWith("Accepted BTC decrease"));
+
+    beforeEach(() => {
+      db.prepare("DELETE FROM holdings_snapshots WHERE date > ?").run("2026-08-02");
+    });
+
+    it("saves and logs a real sale with the shares from the preceding cover page", async () => {
+      const result = await run(augustSec("2026-08-10"), { now: augustNow });
+
+      expect(result).toEqual({ status: "updated", saved: ["2026-08-09"], skippedManual: [] });
+      expect(snapshot("2026-08-09")).toMatchObject({
+        btc_held: 840447,
+        shares_outstanding: 384225751,
+        source: "automatic",
+      });
+      expect(acceptedDrops()).toEqual([
+        expect.objectContaining({
+          message: "Accepted BTC decrease for 2026-08-09: 842138 BTC → 840447 BTC.",
+          data: { date: "2026-08-09", previous_btc_held: 842138, btc_held: 840447 },
+        }),
+      ]);
+      expect(getPendingHoldingsWarning(db)).toBeUndefined();
+    });
+
+    it("continues from a real sale to the next reading in the same pass", async () => {
+      const result = await run(augustSec("2026-08-17"), { now: augustNow });
+
+      expect(result).toEqual({ status: "updated", saved: ["2026-08-09", "2026-08-16"], skippedManual: [] });
+      expect(snapshot("2026-08-09")?.btc_held).toBe(840447);
+      expect(snapshot("2026-08-16")?.btc_held).toBe(840447);
+      expect(acceptedDrops()).toEqual([expect.objectContaining({ data: expect.objectContaining({ date: "2026-08-09" }) })]);
+    });
+
+    it("clears an old rejection when the next pass confirms the sale", async () => {
+      expect(saveHoldingsSnapshot(db, {
+        date: "2026-08-09",
+        btc_held: 840447,
+        shares_outstanding: 384225751,
+        source: "automatic",
+      }).status).toBe("rejected");
+      setMeta(db, "markets_sec_last_check", augustNow.toISOString());
+      expect(getPendingHoldingsWarning(db)).toMatchObject({ date: "2026-08-09", reason: "btc_decreased" });
+      expect(snapshot("2026-08-09")).toBeUndefined();
+
+      const result = await run(augustSec("2026-08-10"), {
+        now: new Date(augustNow.getTime() + CHECK_INTERVAL_MS + HOUR_MS),
+      });
+
+      expect(result).toEqual({ status: "updated", saved: ["2026-08-09"], skippedManual: [] });
+      expect(snapshot("2026-08-09")?.btc_held).toBe(840447);
+      expect(getPendingHoldingsWarning(db)).toBeUndefined();
+      expect(acceptedDrops()).toHaveLength(1);
+    });
+
+    it("uses the main filing's sale signal with the holdings in Exhibit 99", async () => {
+      const accession = "0001193125-26-341297";
+      const exhibit = "ex99-1.htm";
+      const result = await run(augustSec("2026-08-10", {
+        [URL_8K_AUG_10]: "<p>BTC Sold</p>",
+        [archiveUrl(accession, "index.json")]: JSON.stringify({ directory: { item: [{ name: exhibit }] } }),
+        [archiveUrl(accession, exhibit)]: "<p>As of August 9, 2026, Strategy held 840,447 BTC.</p>",
+      }), { now: augustNow });
+
+      expect(result).toEqual({ status: "updated", saved: ["2026-08-09"], skippedManual: [] });
+      expect(snapshot("2026-08-09")?.btc_held).toBe(840447);
+      expect(acceptedDrops()).toHaveLength(1);
+    });
+
+    it("stops at a subsequent drop without a sale even when a later reading could be saved", async () => {
+      const result = await run(augustSec("2026-08-24", {
+        [URL_8K_AUG_17]: EIGHT_K_AUG_17.replaceAll("840,447", "840,446"),
+        [archiveUrl("0001193125-26-361845", "mstr-20260824.htm")]:
+          "<p>As of August 23, 2026, Strategy held 840,448 BTC.</p>",
+      }), { now: augustNow });
+
+      const warning = { date: "2026-08-16", reason: "btc_decreased", btc_held: 840446, previous_btc_held: 840447 };
+      expect(result).toMatchObject({ status: "updated", saved: ["2026-08-09"], rejected: warning });
+      expect(getPendingHoldingsWarning(db)).toMatchObject(warning);
+      expect(snapshot("2026-08-09")?.btc_held).toBe(840447);
+      expect(snapshot("2026-08-16")).toBeUndefined();
+      expect(snapshot("2026-08-23")).toBeUndefined();
+      expect(acceptedDrops()).toHaveLength(1);
     });
   });
 

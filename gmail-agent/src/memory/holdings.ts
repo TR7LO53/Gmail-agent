@@ -24,6 +24,8 @@ export interface SaveHoldingsInput {
   shares_outstanding: number;
   source: HoldingsSource;
   created_at?: string;
+  /** Whether the filing that supplied this automatic reading reports BTC sales. */
+  reportsBtcSales?: boolean;
 }
 
 export interface HoldingsWarning {
@@ -43,6 +45,8 @@ export type SaveHoldingsResult =
 export const STALE_AFTER_DAYS = 14;
 /** An automatic reading may raise BTC held by at most this fraction over the latest snapshot. */
 export const MAX_AUTOMATIC_RISE = 0.1;
+/** A filing that reports BTC sales may lower BTC held by at most this fraction. */
+export const MAX_AUTOMATIC_DROP = 0.05;
 
 const WARNING_KEY = "markets_holdings_warning";
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -140,7 +144,15 @@ function checkAutomaticReading(
     previous_date: latest.date,
     previous_btc_held: latest.btc_held,
   };
-  if (input.btc_held < latest.btc_held) return { reason: "btc_decreased", ...base };
+  const minimumAfterSale = latest.btc_held * (1 - MAX_AUTOMATIC_DROP);
+  // Allow for floating-point rounding at the exact 5% boundary for fractional BTC.
+  const roundingError = minimumAfterSale * Number.EPSILON;
+  if (
+    input.btc_held < latest.btc_held &&
+    (input.reportsBtcSales !== true || input.btc_held < minimumAfterSale - roundingError)
+  ) {
+    return { reason: "btc_decreased", ...base };
+  }
   if (input.btc_held > latest.btc_held * (1 + MAX_AUTOMATIC_RISE)) {
     return { reason: "btc_increased_too_much", ...base };
   }
@@ -150,8 +162,9 @@ function checkAutomaticReading(
 /**
  * Save a snapshot.
  * - Automatic never overwrites a manual one for the same date (`skipped_manual`).
- * - Automatic is sanity-checked against the latest snapshot; a drop or a rise above 10% is
- *   rejected, remembered as a pending warning and logged.
+ * - Automatic is checked against the latest snapshot. A drop of at most 5% is saved and
+ *   logged to Activity with both BTC counts if the filing reports BTC sales. Other drops
+ *   and rises above 10% are rejected, remembered as a pending warning and logged.
  * - Manual skips the check, replaces the row for that date and is logged as a manual edit.
  * Any successful save clears the pending warning.
  */
@@ -163,12 +176,14 @@ export function saveHoldingsSnapshot(db: DB, input: SaveHoldingsInput): SaveHold
       | Record<string, unknown>
       | undefined;
 
+    let latest: HoldingsSnapshot | undefined;
     if (input.source === "automatic") {
       if (existing?.source === "manual") {
         db.exec("COMMIT");
         return { status: "skipped_manual", snapshot: fromRow(existing) };
       }
-      const warning = checkAutomaticReading(input, getLatestHoldingsSnapshot(db));
+      latest = getLatestHoldingsSnapshot(db);
+      const warning = checkAutomaticReading(input, latest);
       if (warning) {
         setMeta(db, WARNING_KEY, JSON.stringify(warning));
         const what =
@@ -210,6 +225,13 @@ export function saveHoldingsSnapshot(db: DB, input: SaveHoldingsInput): SaveHold
             : null,
           after: { btc_held: input.btc_held, shares_outstanding: input.shares_outstanding },
         },
+      });
+    } else if (latest && input.btc_held < latest.btc_held) {
+      logEvent(db, {
+        source: "markets",
+        level: "info",
+        message: `Accepted BTC decrease for ${input.date}: ${latest.btc_held} BTC → ${input.btc_held} BTC.`,
+        data: { date: input.date, previous_btc_held: latest.btc_held, btc_held: input.btc_held },
       });
     }
 
