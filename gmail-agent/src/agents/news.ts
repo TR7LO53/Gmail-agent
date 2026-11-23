@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { LLMProvider } from "../llm/provider.js";
+import { formatOpenAIError, type LLMProvider } from "../llm/provider.js";
 import type { GmailClient } from "../gmail/client.js";
 import type { DB } from "../memory/db.js";
 import {
@@ -65,10 +65,6 @@ export interface NewsDeps {
 /** The model used for AI News. Single source of the default. */
 export function newsModel(): string {
   return process.env.OPENAI_NEWS_MODEL?.trim() || "gpt-6-luna";
-}
-
-function errorText(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
 
 function receivedTime(row: SearchResultRow): number | undefined {
@@ -212,7 +208,7 @@ export async function runNews(deps: NewsDeps): Promise<ToolResponse<NewsRunSumma
     } catch (error) {
       const nextAttempts = attempts + 1;
       const status = nextAttempts >= 3 ? "failed" : "pending";
-      const message = errorText(error);
+      const message = formatOpenAIError(error, model, "OPENAI_NEWS_MODEL");
       // A new record is durable before body read; for a failure before that insert, create it here.
       saveNewsSummary(deps.db, { ...metadata, status, attempts: nextAttempts, error: message });
       summary.errors++;

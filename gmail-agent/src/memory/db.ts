@@ -152,6 +152,17 @@ function ensureColumn(db: DB, table: string, column: string, type: string): void
 
 export type DB = DatabaseSyncType;
 
+export function inTransaction(db: DB, write: () => void): void {
+  db.exec("BEGIN IMMEDIATE");
+  try {
+    write();
+    db.exec("COMMIT");
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
+}
+
 export function openDb(dbPath?: string): DB {
   const { DatabaseSync } = _require("node:sqlite") as {
     DatabaseSync: typeof DatabaseSyncType;

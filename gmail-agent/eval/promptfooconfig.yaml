@@ -9,7 +9,7 @@ prompts:
   - file://classifier.prompt.json
 
 providers:
-  - id: openai:gpt-4.1-nano # current default (cheap)
+  - id: openai:gpt-6-luna
     config:
       response_format: { type: json_object }
   - id: openai:gpt-4o-mini # comparison model

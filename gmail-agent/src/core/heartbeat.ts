@@ -1,13 +1,14 @@
 import type { LLMProvider } from "../llm/provider.js";
 import type { GmailClient } from "../gmail/client.js";
 import type { DB } from "../memory/db.js";
-import { getLastChecked, setLastChecked } from "../memory/meta.js";
-import { runClassifier, type ClassifierSummary } from "../agents/classifier.js";
+import { completeClassifierScan, getClassifierScan, getLastChecked, getMeta, saveClassifierScan } from "../memory/meta.js";
+import { getEmailDecisionStates } from "../memory/decisions.js";
+import { classifierSearchDate, runClassifier, type ClassifierSummary } from "../agents/classifier.js";
 import { runTracker, generateDailySummary, type TrackerSummary } from "../agents/tracker.js";
 import { refreshUnread } from "../agents/inbox.js";
 import { runNews, newsModel, type NewsRunSummary } from "../agents/news.js";
-import { logEvent, pruneLogs } from "../memory/logs.js";
-import { ok, type ToolResponse } from "../tools/types.js";
+import { logEvent, pruneLogs, type LogSource } from "../memory/logs.js";
+import { fail, ok, type ToolResponse } from "../tools/types.js";
 
 /**
  * Stage 3 heartbeat — the proactivity loop. One tick runs the whole pipeline:
@@ -58,78 +59,91 @@ function zeroNews(): NewsRunSummary {
   };
 }
 
+async function runStep<T>(
+  db: DB, source: LogSource, run: () => Promise<ToolResponse<T>>,
+): Promise<ToolResponse<T>> {
+  try {
+    return await run();
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    logEvent(db, { source, level: "error", message: `${source} failed: ${reason}` });
+    return fail(reason);
+  }
+}
+
 export async function runHeartbeatTick(
   deps: HeartbeatDeps,
   opts: { maxEmails?: number } = {},
 ): Promise<ToolResponse<HeartbeatResult>> {
   const now = new Date();
-  const lastChecked = getLastChecked(deps.db);
-
-  // Look back to just before the previous run (with a one-day overlap for safety), or default to a
-  // 7-day window on the very first run. Dedup-by-decisions handles any overlap cheaply.
+  const ranAt = now.toISOString();
+  let lastChecked: string | undefined;
   let days = 7;
-  if (lastChecked) {
-    const elapsedDays = Math.ceil((now.getTime() - new Date(lastChecked).getTime()) / DAY_MS) + 1;
-    days = Math.min(Math.max(elapsedDays, 1), 30);
-  }
+  let after: string | undefined;
+  let startedAt = ranAt;
+  logEvent(deps.db, { source: "heartbeat", message: "Tick started" });
 
-  logEvent(deps.db, {
-    source: "heartbeat",
-    message: `Tick started (looking back ${days}d)`,
-    data: { days, lastChecked: lastChecked ?? "(first run)" },
+  const classifier = await runStep(deps.db, "classifier", async () => {
+    lastChecked = getLastChecked(deps.db);
+    // Overlap the previous scan by one day. The first scan normally looks back seven days.
+    if (lastChecked) {
+      const elapsedDays = Math.ceil((now.getTime() - Date.parse(lastChecked)) / DAY_MS) + 1;
+      days = Math.min(Math.max(elapsedDays, 1), 30);
+    }
+    const currentAfter = classifierSearchDate(now, days);
+    const unfinishedScan = getClassifierScan(deps.db);
+    after = unfinishedScan && unfinishedScan.after < currentAfter ? unfinishedScan.after : currentAfter;
+    startedAt = unfinishedScan?.startedAt ?? ranAt;
+    if (unfinishedScan?.after !== after) saveClassifierScan(deps.db, { after, startedAt });
+    return runClassifier({ days, after, maxEmails: opts.maxEmails ?? 25, skipProcessed: true }, deps);
+  });
+  const tracker = await runStep(deps.db, "tracker", () => runTracker({}, deps));
+  // Refresh the current unread set (cheap, metadata-only) before summarising.
+  const unread = await runStep(deps.db, "inbox", () => refreshUnread(deps));
+  const summary = await runStep(deps.db, "summary", () => generateDailySummary(deps));
+  const news = await runStep(deps.db, "news", () => runNews(deps));
+
+  const scanCheckpoint = classifier.success && await runStep(deps.db, "classifier", async () => {
+    // Tracker may have resolved an email after its classification failed.
+    const retryPending = [...getEmailDecisionStates(deps.db).values()].some(
+      (state) => state.retryPending && state.lastClassificationError && state.lastClassificationError >= startedAt,
+    );
+    if (!retryPending) completeClassifierScan(deps.db, ranAt);
+    return ok(undefined);
   });
 
-  const classifier = await runClassifier(
-    { days, maxEmails: opts.maxEmails ?? 25, skipProcessed: true },
-    deps,
-  );
-
-  const tracker = await runTracker({}, deps);
-  // Refresh the current unread set (cheap, metadata-only) before summarising.
-  const unread = await refreshUnread({ gmail: deps.gmail, db: deps.db });
-  const summary = await generateDailySummary({ llm: deps.llm, db: deps.db });
-  let news: ToolResponse<NewsRunSummary>;
-  try {
-    news = await runNews(deps);
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    news = ok({ ...zeroNews(), errors: 1 }, { diagnostics: { error: errorMessage } });
-    logEvent(deps.db, { source: "news", level: "error", message: `News run failed: ${errorMessage}` });
-  }
-
-  setLastChecked(deps.db, now.toISOString());
-
+  const flags = {
+    classifierOk: scanCheckpoint !== false && scanCheckpoint.success && (classifier.data?.errors ?? 0) === 0,
+    trackerOk: tracker.success && (tracker.data?.errors ?? 0) === 0,
+    unreadOk: unread.success,
+    summaryOk: summary.success,
+    newsOk: news.success && (news.data?.errors ?? 0) === 0 && !news.data?.searchError,
+  };
   logEvent(deps.db, {
     source: "heartbeat",
+    level: Object.values(flags).every(Boolean) ? "info" : "warn",
     message: `Tick done — ${classifier.data?.tracked ?? 0} new parcels, ${tracker.data?.updated ?? 0} status updates, ${unread.data?.unread ?? 0} unread`,
-    data: {
-      classifierOk: classifier.success,
-      trackerOk: tracker.success,
-      unreadOk: unread.success,
-      newsOk: news.success && (news.data?.errors ?? 0) === 0 && !news.data?.searchError,
-    },
+    data: flags,
   });
   pruneLogs(deps.db);
 
   return ok<HeartbeatResult>(
     {
-      ranAt: now.toISOString(),
+      ranAt,
       lastCheckedBefore: lastChecked,
       classifier: classifier.data ?? ZERO_CLASSIFIER,
       tracker: tracker.data ?? ZERO_TRACKER,
       unread: unread.data?.unread ?? 0,
-      summary: summary.data?.summary ?? "",
-      news: news.data ?? zeroNews(),
+      summary: summary.data?.summary ?? getMeta(deps.db, "daily_summary") ?? "",
+      news: news.data ?? { ...zeroNews(), errors: news.success ? 0 : 1 },
     },
     {
-      next_action: "Heartbeat tick complete. Parcels, unread, daily summary and news updated.",
+      next_action: "Heartbeat tick complete. Open Activity for stage results.",
       diagnostics: {
         days,
+        after,
         lastCheckedBefore: lastChecked ?? "(first run)",
-        classifierOk: classifier.success,
-        trackerOk: tracker.success,
-        unreadOk: unread.success,
-        newsOk: news.success && (news.data?.errors ?? 0) === 0 && !news.data?.searchError,
+        ...flags,
       },
     },
   );

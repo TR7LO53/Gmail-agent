@@ -1,7 +1,7 @@
 import { z } from "zod";
-import type { LLMProvider } from "../llm/provider.js";
+import { formatOpenAIError, openaiModel, type LLMProvider } from "../llm/provider.js";
 import type { GmailClient } from "../gmail/client.js";
-import type { DB } from "../memory/db.js";
+import { inTransaction, type DB } from "../memory/db.js";
 import { upsertParcel, listActiveParcels, getParcel, type Parcel } from "../memory/parcels.js";
 import { recordDecision } from "../memory/decisions.js";
 import { logEvent } from "../memory/logs.js";
@@ -25,7 +25,18 @@ import { ok, fail, type ToolResponse } from "../tools/types.js";
 // The Tracker may use a deeper model than the Classifier (optional seam). Falls back to the
 // Classifier's model, then the project default, so nothing changes cost-wise unless opted in.
 function trackerModel(): string {
-  return process.env.OPENAI_TRACKER_MODEL ?? process.env.OPENAI_MODEL ?? "gpt-4.1-nano";
+  return process.env.OPENAI_TRACKER_MODEL ?? openaiModel();
+}
+
+async function extractWithTrackerModel<T>(
+  llm: LLMProvider, schema: z.ZodType<T>, system: string, user: string, model: string,
+): Promise<T> {
+  const modelEnv = process.env.OPENAI_TRACKER_MODEL === undefined ? "OPENAI_MODEL" : "OPENAI_TRACKER_MODEL";
+  try {
+    return await llm.extract(schema, system, user, { model });
+  } catch (error) {
+    throw new Error(formatOpenAIError(error, model, modelEnv), { cause: error });
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -144,9 +155,8 @@ export async function trackParcel(
     .filter(Boolean)
     .join("\n");
 
-  const result = await deps.llm.extract(TrackerResultSchema, TRACKER_SYSTEM, userText, {
-    model: trackerModel(),
-  });
+  const model = trackerModel();
+  const result = await extractWithTrackerModel(deps.llm, TrackerResultSchema, TRACKER_SYSTEM, userText, model);
 
   // Store the refreshed compact note for next time (context compression).
   recordObservation(deps.db, {
@@ -191,7 +201,7 @@ export async function trackParcel(
       tracking_number: parcel.tracking_number,
       changed,
       emailsScanned: bodies.length,
-      model: trackerModel(),
+      model,
     },
   });
 }
@@ -267,17 +277,19 @@ export async function generateDailySummary(
   const todays = listTodaysEmails(deps.db, startOfLocalDayIso());
   const unread = listUnread(deps.db);
   const now = new Date().toISOString();
+  const counts = { activeParcels: active.length, todaysEmails: todays.length, unread: unread.length };
+  const saveSummary = (text: string, message: string): void => {
+    inTransaction(deps.db, () => {
+      setMeta(deps.db, "daily_summary", text);
+      setMeta(deps.db, "daily_summary_at", now);
+      logEvent(deps.db, { source: "summary", message, data: counts });
+    });
+  };
 
   if (active.length === 0 && todays.length === 0 && unread.length === 0) {
     const text = "Nothing new today.";
-    setMeta(deps.db, "daily_summary", text);
-    setMeta(deps.db, "daily_summary_at", now);
-    logEvent(deps.db, {
-      source: "summary",
-      message: "Daily summary: nothing new today",
-      data: { activeParcels: 0, todaysEmails: 0, unread: 0 },
-    });
-    return ok({ summary: text }, { diagnostics: { activeParcels: 0, todaysEmails: 0, unread: 0 } });
+    saveSummary(text, "Daily summary: nothing new today");
+    return ok({ summary: text }, { diagnostics: counts });
   }
 
   const userText = [
@@ -288,24 +300,8 @@ export async function generateDailySummary(
     ...active.map((p) => `- ${p.carrier} ${p.tracking_number}: ${p.status} (updated ${p.last_update})`),
   ].join("\n");
 
-  const result = await deps.llm.extract(DailySummarySchema, SUMMARY_SYSTEM, userText, {
-    model: trackerModel(),
-  });
-
-  setMeta(deps.db, "daily_summary", result.summary);
-  setMeta(deps.db, "daily_summary_at", now);
-  logEvent(deps.db, {
-    source: "summary",
-    message: `Daily summary generated (${active.length} parcels, ${todays.length} new emails, ${unread.length} unread)`,
-    data: { activeParcels: active.length, todaysEmails: todays.length, unread: unread.length },
-  });
-
-  return ok(result, {
-    diagnostics: {
-      activeParcels: active.length,
-      todaysEmails: todays.length,
-      unread: unread.length,
-      model: trackerModel(),
-    },
-  });
+  const model = trackerModel();
+  const result = await extractWithTrackerModel(deps.llm, DailySummarySchema, SUMMARY_SYSTEM, userText, model);
+  saveSummary(result.summary, `Daily summary generated (${active.length} parcels, ${todays.length} new emails, ${unread.length} unread)`);
+  return ok(result, { diagnostics: { ...counts, model } });
 }

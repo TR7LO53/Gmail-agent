@@ -80,4 +80,30 @@ describe("decisions log", () => {
     expect(ids.has("c")).toBe(false);
     expect(ids.size).toBe(2);
   });
+
+  it("deduplicates a failed classification only after three errors or a completed decision", () => {
+    const timestamp = "2026-07-01T10:00:00.000Z";
+    for (const email_id of ["exhausted", "skipped", "tracked"]) {
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        recordDecision(db, { timestamp, email_id, action_taken: "skip", outcome: "error" });
+        expect(getProcessedEmailIds(db).has(email_id)).toBe(false);
+      }
+    }
+    recordDecision(db, { timestamp, email_id: "exhausted", action_taken: "skip", outcome: "error" });
+    recordDecision(db, { timestamp, email_id: "skipped", action_taken: "skip" });
+    recordDecision(db, { timestamp, email_id: "tracked", action_taken: "track", outcome: "shipped" });
+    expect(getProcessedEmailIds(db)).toEqual(new Set(["exhausted", "skipped", "tracked"]));
+    expect(listDecisions(db)).toHaveLength(9);
+  });
+
+  it.each(["update", "skip"] as const)("deduplicates a legacy Tracker error with action %s", (action_taken) => {
+    recordDecision(db, {
+      timestamp: "2026-07-01T10:00:00.000Z",
+      email_id: "legacy",
+      action_taken,
+      agent_reasoning: "Tracker error: Connection error.",
+      outcome: "error",
+    });
+    expect(getProcessedEmailIds(db).has("legacy")).toBe(true);
+  });
 });

@@ -1,10 +1,11 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { afterEach, describe, it, expect, beforeEach, vi } from "vitest";
+import OpenAI from "openai";
 import { openDb } from "../../src/memory/db.js";
 import { upsertParcel, getParcel } from "../../src/memory/parcels.js";
 import { listDecisions } from "../../src/memory/decisions.js";
 import { listRecentLogs } from "../../src/memory/logs.js";
 import { recordObservation, getObservation } from "../../src/memory/observations.js";
-import { runTracker, trackParcel, type TrackerResult } from "../../src/agents/tracker.js";
+import { generateDailySummary, runTracker, trackParcel, type TrackerResult } from "../../src/agents/tracker.js";
 import type { LLMProvider } from "../../src/llm/provider.js";
 import type { DB } from "../../src/memory/db.js";
 import { makeFakeGmail, b64url } from "../helpers/fake-gmail.js";
@@ -63,6 +64,44 @@ describe("Tracker integration", () => {
       thread_id: "thread_trk1",
       email_id: "seed_msg",
     });
+  });
+  afterEach(() => {
+    db.close();
+    vi.unstubAllEnvs();
+  });
+
+  it.each([
+    ["deep-model", "deep-model"],
+    [undefined, "shared-model"],
+  ])("uses the same model for tracking and the daily summary with OPENAI_TRACKER_MODEL=%s", async (override, model) => {
+    vi.stubEnv("OPENAI_MODEL", "shared-model");
+    vi.stubEnv("OPENAI_TRACKER_MODEL", override);
+    const llm = fakeLLM({ currentStatus: "in_transit", summary: "Still in transit.", isDelivered: false });
+    const extract = vi.spyOn(llm, "extract");
+    const gmail = emptyGmail();
+
+    await runTracker({}, { gmail, llm, db });
+    await generateDailySummary({ llm, db });
+
+    expect(extract).toHaveBeenNthCalledWith(1, expect.anything(), expect.stringContaining("status tracker"), expect.any(String), { model });
+    expect(extract).toHaveBeenNthCalledWith(2, expect.anything(), expect.stringContaining("daily digest"), expect.any(String), { model });
+  });
+
+  it.each([
+    ["deep-model", "deep-model", "OPENAI_TRACKER_MODEL"],
+    [undefined, "shared-model", "OPENAI_MODEL"],
+  ])("identifies the setting for an unavailable tracker or summary model", async (override, model, setting) => {
+    vi.stubEnv("OPENAI_MODEL", "shared-model");
+    vi.stubEnv("OPENAI_TRACKER_MODEL", override);
+    const extract = vi.fn(async () => {
+      throw new OpenAI.NotFoundError(404, { code: "model_not_found", message: "The model has been deprecated" }, undefined, {});
+    });
+    const llm = { extract };
+
+    await runTracker({}, { gmail: emptyGmail(), llm, db });
+    const hint = `Model ${model} is unavailable. Change ${setting} in .env.`;
+    expect(listRecentLogs(db).find((entry) => entry.level === "error")?.message).toContain(hint);
+    await expect(generateDailySummary({ llm, db })).rejects.toThrow(hint);
   });
 
   it("advances a parcel to delivered and logs an update decision", async () => {
